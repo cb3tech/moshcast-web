@@ -4,7 +4,7 @@ import { formatDuration } from '../utils/format'
 import { 
   Play, Pause, SkipBack, SkipForward, 
   Volume2, VolumeX, Shuffle, Repeat, Repeat1,
-  Music, List
+  Music, List, X
 } from 'lucide-react'
 import QueuePanel from './QueuePanel'
 
@@ -18,6 +18,7 @@ export default function Player() {
 
   const [showVolume, setShowVolume] = useState(false)
   const [showQueue, setShowQueue] = useState(false)
+  const [minimized, setMinimized] = useState(false)
   const canvasRef = useRef(null)
   const animationRef = useRef(null)
 
@@ -128,167 +129,182 @@ export default function Player() {
   }, [isPlaying])
 
   if (!currentSong) {
-    return (
-      <div className="fixed bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-mosh-black to-mosh-darker border-t border-mosh-border flex items-center justify-center">
-        <p className="text-mosh-muted text-sm">Select a song to start playing</p>
-      </div>
-    )
+    return null // Don't show player if no song
   }
 
   const progressPercent = duration > 0 ? (progress / duration) * 100 : 0
 
   return (
     <>
-      <div className="fixed bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-mosh-black to-mosh-darker border-t border-mosh-border">
-        {/* Fake Waveform Visualizer */}
-        <canvas 
-          ref={canvasRef}
-          width={800}
-          height={40}
-          className="absolute top-0 left-0 right-0 w-full h-10 opacity-50"
-        />
+      {/* Floating Player Container */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-4xl">
+        <div className="bg-mosh-darker/95 backdrop-blur-xl border border-mosh-border rounded-2xl shadow-2xl shadow-black/50 overflow-hidden">
+          {/* Fake Waveform Visualizer */}
+          <canvas 
+            ref={canvasRef}
+            width={800}
+            height={32}
+            className="w-full h-8 opacity-60"
+          />
 
-        <div className="relative h-full flex items-center px-4 gap-4">
-          {/* Song Info */}
-          <div className="flex items-center gap-3 w-72 min-w-0">
-            <div className="w-14 h-14 bg-mosh-card rounded flex items-center justify-center flex-shrink-0">
-              {currentSong.artwork_url ? (
-                <img 
-                  src={currentSong.artwork_url} 
-                  alt={currentSong.album}
-                  className="w-full h-full object-cover rounded"
-                />
-              ) : (
-                <Music className="w-6 h-6 text-mosh-muted" />
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-mosh-light truncate">
-                {currentSong.title}
-              </p>
-              <p className="text-xs text-mosh-text truncate">
-                {currentSong.artist || 'Unknown Artist'}
-              </p>
-            </div>
-          </div>
-
-          {/* Center Controls */}
-          <div className="flex-1 flex flex-col items-center gap-1 max-w-2xl mx-auto">
-            {/* Buttons */}
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={toggleShuffle}
-                className={`p-1 transition ${shuffle ? 'text-mosh-accent' : 'text-mosh-muted hover:text-mosh-light'}`}
-                title="Shuffle (S)"
-              >
-                <Shuffle className="w-4 h-4" />
-              </button>
-              
-              <button 
-                onClick={prevSong}
-                className="p-1 text-mosh-muted hover:text-mosh-light transition"
-                title="Previous (Shift+←)"
-              >
-                <SkipBack className="w-5 h-5" />
-              </button>
-              
-              <button 
-                onClick={togglePlay}
-                className="p-2 bg-mosh-light rounded-full hover:scale-105 transition"
-                title="Play/Pause (Space)"
-              >
-                {isPlaying ? (
-                  <Pause className="w-5 h-5 text-mosh-black" />
-                ) : (
-                  <Play className="w-5 h-5 text-mosh-black ml-0.5" />
-                )}
-              </button>
-              
-              <button 
-                onClick={nextSong}
-                className="p-1 text-mosh-muted hover:text-mosh-light transition"
-                title="Next (Shift+→)"
-              >
-                <SkipForward className="w-5 h-5" />
-              </button>
-              
-              <button 
-                onClick={toggleRepeat}
-                className={`p-1 transition ${repeat !== 'none' ? 'text-mosh-accent' : 'text-mosh-muted hover:text-mosh-light'}`}
-                title="Repeat (R)"
-              >
-                {repeat === 'one' ? (
-                  <Repeat1 className="w-4 h-4" />
-                ) : (
-                  <Repeat className="w-4 h-4" />
-                )}
-              </button>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="w-full flex items-center gap-2">
-              <span className="text-xs text-mosh-muted w-10 text-right">
-                {formatDuration(progress)}
-              </span>
+          <div className="px-4 pb-4 pt-2">
+            {/* Progress Bar - Full Width */}
+            <div 
+              className="w-full h-1.5 bg-mosh-card rounded-full cursor-pointer group mb-4"
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect()
+                const percent = (e.clientX - rect.left) / rect.width
+                seek(percent * duration)
+              }}
+            >
               <div 
-                className="flex-1 h-1 bg-mosh-card rounded-full cursor-pointer group"
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  const percent = (e.clientX - rect.left) / rect.width
-                  seek(percent * duration)
-                }}
+                className="h-full bg-mosh-accent rounded-full relative transition-colors"
+                style={{ width: `${progressPercent}%` }}
               >
-                <div 
-                  className="h-full bg-mosh-light group-hover:bg-mosh-accent rounded-full relative transition-colors"
-                  style={{ width: `${progressPercent}%` }}
-                >
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-mosh-light rounded-full opacity-0 group-hover:opacity-100 transition" />
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-mosh-accent rounded-full opacity-0 group-hover:opacity-100 transition shadow-lg" />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              {/* Song Info */}
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-12 h-12 bg-mosh-card rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg">
+                  {currentSong.artwork_url ? (
+                    <img 
+                      src={currentSong.artwork_url} 
+                      alt={currentSong.album}
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                  ) : (
+                    <Music className="w-5 h-5 text-mosh-muted" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-mosh-light truncate">
+                    {currentSong.title}
+                  </p>
+                  <p className="text-xs text-mosh-muted truncate">
+                    {currentSong.artist || 'Unknown Artist'}
+                  </p>
+                </div>
+                <div className="text-xs text-mosh-muted ml-2 flex-shrink-0">
+                  {formatDuration(progress)} / {formatDuration(duration)}
                 </div>
               </div>
-              <span className="text-xs text-mosh-muted w-10">
-                {formatDuration(duration)}
-              </span>
-            </div>
-          </div>
 
-          {/* Right Controls */}
-          <div className="flex items-center gap-3 w-72 justify-end">
-            {/* Queue Button */}
-            <button 
-              onClick={() => setShowQueue(!showQueue)}
-              className={`p-2 transition ${showQueue ? 'text-mosh-accent' : 'text-mosh-muted hover:text-mosh-light'}`}
-              title="Queue"
-            >
-              <List className="w-5 h-5" />
-            </button>
+              {/* Center Controls */}
+              <div className="flex items-center gap-2">
+                {/* Shuffle */}
+                <button 
+                  onClick={toggleShuffle}
+                  className={`p-2 rounded-full transition ${shuffle ? 'bg-mosh-accent/20 text-mosh-accent' : 'text-mosh-muted hover:text-mosh-light hover:bg-mosh-card'}`}
+                  title={`Shuffle ${shuffle ? 'ON' : 'OFF'} (S)`}
+                >
+                  <Shuffle className="w-4 h-4" />
+                </button>
+                
+                {/* Previous */}
+                <button 
+                  onClick={prevSong}
+                  className="p-2 text-mosh-muted hover:text-mosh-light hover:bg-mosh-card rounded-full transition"
+                  title="Previous (Shift+←)"
+                >
+                  <SkipBack className="w-5 h-5" />
+                </button>
+                
+                {/* Play/Pause */}
+                <button 
+                  onClick={togglePlay}
+                  className="p-3 bg-mosh-accent hover:bg-mosh-accent-hover rounded-full hover:scale-105 transition shadow-lg"
+                  title="Play/Pause (Space)"
+                >
+                  {isPlaying ? (
+                    <Pause className="w-6 h-6 text-mosh-black" />
+                  ) : (
+                    <Play className="w-6 h-6 text-mosh-black ml-0.5" />
+                  )}
+                </button>
+                
+                {/* Next */}
+                <button 
+                  onClick={nextSong}
+                  className="p-2 text-mosh-muted hover:text-mosh-light hover:bg-mosh-card rounded-full transition"
+                  title="Next (Shift+→)"
+                >
+                  <SkipForward className="w-5 h-5" />
+                </button>
+                
+                {/* Repeat/Loop */}
+                <button 
+                  onClick={toggleRepeat}
+                  className={`p-2 rounded-full transition ${repeat !== 'none' ? 'bg-mosh-accent/20 text-mosh-accent' : 'text-mosh-muted hover:text-mosh-light hover:bg-mosh-card'}`}
+                  title={`Loop: ${repeat === 'none' ? 'OFF' : repeat === 'all' ? 'ALL' : 'ONE'} (R)`}
+                >
+                  {repeat === 'one' ? (
+                    <Repeat1 className="w-4 h-4" />
+                  ) : (
+                    <Repeat className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
 
-            {/* Volume */}
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setVolume(volume === 0 ? 0.7 : 0)}
-                className="p-1 text-mosh-muted hover:text-mosh-light transition"
-                title="Mute (M)"
-              >
-                {volume === 0 ? (
-                  <VolumeX className="w-5 h-5" />
-                ) : (
-                  <Volume2 className="w-5 h-5" />
-                )}
-              </button>
-              <div 
-                className="w-24 h-1 bg-mosh-card rounded-full cursor-pointer group"
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  const percent = (e.clientX - rect.left) / rect.width
-                  setVolume(Math.max(0, Math.min(1, percent)))
-                }}
-              >
-                <div 
-                  className="h-full bg-mosh-light group-hover:bg-mosh-accent rounded-full transition-colors"
-                  style={{ width: `${volume * 100}%` }}
-                />
+              {/* Right Controls */}
+              <div className="flex items-center gap-2 flex-1 justify-end">
+                {/* Volume */}
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setVolume(volume === 0 ? 0.7 : 0)}
+                    className="p-2 text-mosh-muted hover:text-mosh-light hover:bg-mosh-card rounded-full transition"
+                    title="Mute (M)"
+                  >
+                    {volume === 0 ? (
+                      <VolumeX className="w-5 h-5" />
+                    ) : (
+                      <Volume2 className="w-5 h-5" />
+                    )}
+                  </button>
+                  <div 
+                    className="w-20 h-1.5 bg-mosh-card rounded-full cursor-pointer group"
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      const percent = (e.clientX - rect.left) / rect.width
+                      setVolume(Math.max(0, Math.min(1, percent)))
+                    }}
+                  >
+                    <div 
+                      className="h-full bg-mosh-light group-hover:bg-mosh-accent rounded-full transition-colors"
+                      style={{ width: `${volume * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Queue Button */}
+                <button 
+                  onClick={() => setShowQueue(!showQueue)}
+                  className={`p-2 rounded-full transition ${showQueue ? 'bg-mosh-accent/20 text-mosh-accent' : 'text-mosh-muted hover:text-mosh-light hover:bg-mosh-card'}`}
+                  title="Queue"
+                >
+                  <List className="w-5 h-5" />
+                </button>
               </div>
             </div>
+
+            {/* Loop/Shuffle Status Indicators */}
+            {(shuffle || repeat !== 'none') && (
+              <div className="flex items-center justify-center gap-3 mt-2 pt-2 border-t border-mosh-border/50">
+                {shuffle && (
+                  <span className="text-xs text-mosh-accent flex items-center gap-1">
+                    <Shuffle className="w-3 h-3" /> Shuffle ON
+                  </span>
+                )}
+                {repeat !== 'none' && (
+                  <span className="text-xs text-mosh-accent flex items-center gap-1">
+                    {repeat === 'one' ? <Repeat1 className="w-3 h-3" /> : <Repeat className="w-3 h-3" />}
+                    Loop {repeat === 'all' ? 'ALL' : 'ONE'}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
