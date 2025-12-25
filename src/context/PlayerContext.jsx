@@ -49,6 +49,14 @@ export function PlayerProvider({ children }) {
 
   // Play a song
   const playSong = (song, songQueue = [], index = 0) => {
+    // Validate song has file_url
+    if (!song || !song.file_url) {
+      console.error('Cannot play song: missing file_url', song)
+      return
+    }
+
+    console.log('Playing song:', song.title, song.file_url)
+
     // Stop current playback
     if (howlRef.current) {
       howlRef.current.unload()
@@ -60,16 +68,20 @@ export function PlayerProvider({ children }) {
     setQueue(songQueue.length > 0 ? songQueue : [song])
     setQueueIndex(songQueue.length > 0 ? index : 0)
     setCurrentTime(0)
+    setDuration(song.duration || 0)
 
     // Create new Howl instance
     howlRef.current = new Howl({
       src: [song.file_url],
       html5: true, // Required for streaming large files
       volume: volume,
+      format: ['mp3', 'm4a', 'aac', 'flac', 'wav', 'ogg'],
       onload: () => {
+        console.log('Howl loaded, duration:', howlRef.current.duration())
         setDuration(howlRef.current.duration())
       },
       onplay: () => {
+        console.log('Howl playing')
         setIsPlaying(true)
         startTimeTracking()
       },
@@ -81,8 +93,18 @@ export function PlayerProvider({ children }) {
         handleSongEnd()
       },
       onloaderror: (id, err) => {
-        console.error('Load error:', err)
+        console.error('Howl load error:', id, err)
         setIsPlaying(false)
+      },
+      onplayerror: (id, err) => {
+        console.error('Howl play error:', id, err)
+        setIsPlaying(false)
+        // Try to unlock and play again
+        if (howlRef.current) {
+          howlRef.current.once('unlock', () => {
+            howlRef.current.play()
+          })
+        }
       },
     })
 
@@ -106,7 +128,13 @@ export function PlayerProvider({ children }) {
 
   // Play/pause toggle
   const togglePlay = () => {
-    if (!howlRef.current) return
+    if (!howlRef.current) {
+      // If no howl but we have a current song, recreate it
+      if (currentSong && currentSong.file_url) {
+        playSong(currentSong, queue, queueIndex)
+      }
+      return
+    }
 
     if (isPlaying) {
       howlRef.current.pause()
