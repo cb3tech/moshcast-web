@@ -23,10 +23,12 @@ export default function JoinStream() {
   const [newMessage, setNewMessage] = useState('')
   const [listenerName, setListenerName] = useState('')
   const [showNamePrompt, setShowNamePrompt] = useState(true)
+  const [audioReady, setAudioReady] = useState(false)
   
   const audioRef = useRef(null)
   const socketRef = useRef(null)
   const messagesEndRef = useRef(null)
+  const pendingStateRef = useRef(null)
 
   // Auto-scroll chat
   useEffect(() => {
@@ -63,8 +65,11 @@ export default function JoinStream() {
       setListenerCount(state.listenerCount || 0)
       setLoading(false)
       
-      // Sync audio if already joined
-      if (hasJoined && audioRef.current && state.song?.file_url) {
+      // Store state for when audio is ready
+      pendingStateRef.current = state
+      
+      // Try to sync if audio ready
+      if (audioReady && audioRef.current) {
         syncAudio(state)
       }
     })
@@ -76,8 +81,11 @@ export default function JoinStream() {
         ...update
       }))
       
-      // Sync audio
-      if (hasJoined && audioRef.current) {
+      // Store for sync
+      pendingStateRef.current = update
+      
+      // Sync audio if ready
+      if (audioReady && audioRef.current) {
         syncAudio(update)
       }
     })
@@ -110,31 +118,48 @@ export default function JoinStream() {
         socketRef.current.disconnect()
       }
     }
-  }, [])
+  }, [audioReady])
 
   // Sync audio with stream state
   const syncAudio = (state) => {
     const audio = audioRef.current
     if (!audio) return
 
+    console.log('🔊 Syncing audio:', state)
+
     // If song changed, load new song
-    if (state.song?.file_url && audio.src !== state.song.file_url) {
-      audio.src = state.song.file_url
+    if (state.song?.file_url) {
+      const currentSrc = audio.src || ''
+      const newSrc = state.song.file_url
+      
+      // Check if different song (compare without query params)
+      if (!currentSrc.includes(newSrc.split('?')[0])) {
+        console.log('🎵 Loading new song:', newSrc)
+        audio.src = newSrc
+        audio.load()
+      }
     }
 
     // Sync position (if drift > 2 seconds)
-    if (state.position !== undefined) {
+    if (state.position !== undefined && !isNaN(state.position)) {
       const drift = Math.abs(audio.currentTime - state.position)
       if (drift > 2) {
+        console.log(`⏱️ Correcting drift: ${drift.toFixed(1)}s`)
         audio.currentTime = state.position
       }
     }
 
     // Sync play/pause
-    if (state.isPlaying && audio.paused) {
-      audio.play().catch(console.error)
-      setIsPlaying(true)
+    if (state.isPlaying === true && audio.paused) {
+      console.log('▶️ Starting playback')
+      audio.play().then(() => {
+        setIsPlaying(true)
+      }).catch(err => {
+        console.error('Autoplay failed:', err)
+        // User will need to click play manually
+      })
     } else if (state.isPlaying === false && !audio.paused) {
+      console.log('⏸️ Pausing playback')
       audio.pause()
       setIsPlaying(false)
     }
@@ -156,25 +181,63 @@ export default function JoinStream() {
     })
   }
 
-  // Update current time display
+  // Handle audio ready
   useEffect(() => {
     const audio = audioRef.current
-    if (!audio) return
+    if (!audio || !hasJoined) return
+
+    const handleCanPlay = () => {
+      console.log('🔊 Audio can play')
+      setAudioReady(true)
+      
+      // Sync with pending state
+      if (pendingStateRef.current) {
+        syncAudio(pendingStateRef.current)
+      }
+    }
 
     const handleTimeUpdate = () => setCurrentTime(audio.currentTime)
     const handlePlay = () => setIsPlaying(true)
     const handlePause = () => setIsPlaying(false)
+    const handleError = (e) => console.error('Audio error:', e)
 
+    audio.addEventListener('canplay', handleCanPlay)
     audio.addEventListener('timeupdate', handleTimeUpdate)
     audio.addEventListener('play', handlePlay)
     audio.addEventListener('pause', handlePause)
+    audio.addEventListener('error', handleError)
 
     return () => {
+      audio.removeEventListener('canplay', handleCanPlay)
       audio.removeEventListener('timeupdate', handleTimeUpdate)
       audio.removeEventListener('play', handlePlay)
       audio.removeEventListener('pause', handlePause)
+      audio.removeEventListener('error', handleError)
     }
-  }, [])
+  }, [hasJoined])
+
+  // Manual play button for when autoplay fails
+  const handleManualPlay = () => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    // Set source if we have it
+    if (session?.song?.file_url && !audio.src) {
+      audio.src = session.song.file_url
+      audio.load()
+    }
+
+    // Set position
+    if (session?.position) {
+      audio.currentTime = session.position
+    }
+
+    // Play
+    audio.play().then(() => {
+      setIsPlaying(true)
+      setAudioReady(true)
+    }).catch(console.error)
+  }
 
   // Toggle mute
   const toggleMute = () => {
@@ -218,7 +281,7 @@ export default function JoinStream() {
   }
 
   // Error state (no stream)
-  if (error || (!session && !showNamePrompt)) {
+  if (error || (!session && !showNamePrompt && hasJoined)) {
     return (
       <div className="min-h-screen bg-zinc-900 flex items-center justify-center p-4">
         <div className="text-center max-w-md">
@@ -298,7 +361,7 @@ export default function JoinStream() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-900/20 to-zinc-900 flex flex-col">
       {/* Hidden audio element */}
-      <audio ref={audioRef} />
+      <audio ref={audioRef} preload="auto" />
 
       {/* Header */}
       <header className="p-4 flex items-center justify-between">
@@ -362,24 +425,28 @@ export default function JoinStream() {
 
           {/* Controls */}
           <div className="flex items-center gap-6">
+            {/* Play/Sync button */}
+            {!isPlaying && session?.song?.file_url && (
+              <button
+                onClick={handleManualPlay}
+                className="flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-full transition"
+              >
+                <Play className="w-5 h-5" fill="white" />
+                Start Listening
+              </button>
+            )}
+
             {/* Play state indicator */}
-            <div className="flex items-center gap-2 text-white">
-              {isPlaying ? (
-                <>
-                  <div className="flex gap-1">
-                    <span className="w-1 h-4 bg-purple-500 rounded animate-pulse" />
-                    <span className="w-1 h-4 bg-purple-500 rounded animate-pulse delay-75" />
-                    <span className="w-1 h-4 bg-purple-500 rounded animate-pulse delay-150" />
-                  </div>
-                  <span className="text-sm">Playing</span>
-                </>
-              ) : (
-                <>
-                  <Pause className="w-5 h-5 text-zinc-500" />
-                  <span className="text-sm text-zinc-500">Paused</span>
-                </>
-              )}
-            </div>
+            {isPlaying && (
+              <div className="flex items-center gap-2 text-white">
+                <div className="flex gap-1">
+                  <span className="w-1 h-4 bg-purple-500 rounded animate-pulse" />
+                  <span className="w-1 h-4 bg-purple-500 rounded animate-pulse delay-75" />
+                  <span className="w-1 h-4 bg-purple-500 rounded animate-pulse delay-150" />
+                </div>
+                <span className="text-sm">Playing</span>
+              </div>
+            )}
 
             {/* Time */}
             <span className="text-zinc-400 text-sm font-mono">
