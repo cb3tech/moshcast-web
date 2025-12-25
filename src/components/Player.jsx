@@ -20,14 +20,10 @@ export default function Player() {
   const [showQueue, setShowQueue] = useState(false)
   const canvasRef = useRef(null)
   const animationRef = useRef(null)
-  const analyserRef = useRef(null)
-  const audioContextRef = useRef(null)
-  const sourceCreatedRef = useRef(new Set())
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Ignore if typing in an input
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
 
       switch (e.code) {
@@ -78,59 +74,45 @@ export default function Player() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [togglePlay, seek, setVolume, nextSong, prevSong, progress, duration, volume, toggleShuffle, toggleRepeat])
 
-  // Waveform visualizer
+  // Fake visualizer - animated bars without AudioContext
   useEffect(() => {
-    if (!currentSong || !howlRef?.current?._sounds?.[0]?._node) return
-
-    const audioNode = howlRef.current._sounds[0]._node
-    const songId = currentSong.id
-
-    // Only create audio context once
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)()
-    }
-
-    if (!analyserRef.current) {
-      analyserRef.current = audioContextRef.current.createAnalyser()
-      analyserRef.current.fftSize = 256
-    }
-
-    // Create source only once per audio node
-    if (!sourceCreatedRef.current.has(songId) && audioNode) {
-      try {
-        const source = audioContextRef.current.createMediaElementSource(audioNode)
-        source.connect(analyserRef.current)
-        analyserRef.current.connect(audioContextRef.current.destination)
-        sourceCreatedRef.current.add(songId)
-      } catch (e) {
-        // Source might already be connected
-      }
-    }
-
     const canvas = canvasRef.current
     if (!canvas) return
 
     const ctx = canvas.getContext('2d')
-    const analyser = analyserRef.current
-    const bufferLength = analyser.frequencyBinCount
-    const dataArray = new Uint8Array(bufferLength)
+    const barCount = 64
+    const barWidth = (canvas.width / barCount) * 0.8
+    const gap = (canvas.width / barCount) * 0.2
+    
+    // Store bar heights for smooth animation
+    const bars = Array(barCount).fill(0)
+    const targetBars = Array(barCount).fill(0)
 
     const draw = () => {
-      analyser.getByteFrequencyData(dataArray)
-
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-      const barWidth = (canvas.width / bufferLength) * 2.5
-      let x = 0
+      for (let i = 0; i < barCount; i++) {
+        // Generate new targets when playing
+        if (isPlaying) {
+          // Create wave-like pattern with some randomness
+          const wave = Math.sin((Date.now() / 200) + (i * 0.3)) * 0.3 + 0.5
+          const random = Math.random() * 0.4
+          targetBars[i] = (wave + random) * canvas.height * 0.7
+        } else {
+          // Fade to small bars when paused
+          targetBars[i] = 2
+        }
 
-      for (let i = 0; i < bufferLength; i++) {
-        const barHeight = (dataArray[i] / 255) * canvas.height * 0.8
+        // Smooth interpolation
+        bars[i] += (targetBars[i] - bars[i]) * 0.15
 
-        // Gradient from accent color
-        ctx.fillStyle = `rgba(29, 185, 84, ${0.4 + (dataArray[i] / 255) * 0.6})`
-        ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight)
+        const x = i * (barWidth + gap)
+        const barHeight = Math.max(2, bars[i])
 
-        x += barWidth + 1
+        // Gradient effect
+        const intensity = barHeight / (canvas.height * 0.7)
+        ctx.fillStyle = `rgba(29, 185, 84, ${0.3 + intensity * 0.5})`
+        ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight)
       }
 
       animationRef.current = requestAnimationFrame(draw)
@@ -143,7 +125,7 @@ export default function Player() {
         cancelAnimationFrame(animationRef.current)
       }
     }
-  }, [currentSong?.id, howlRef])
+  }, [isPlaying])
 
   if (!currentSong) {
     return (
@@ -158,7 +140,7 @@ export default function Player() {
   return (
     <>
       <div className="fixed bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-mosh-black to-mosh-darker border-t border-mosh-border">
-        {/* Waveform Visualizer */}
+        {/* Fake Waveform Visualizer */}
         <canvas 
           ref={canvasRef}
           width={800}
