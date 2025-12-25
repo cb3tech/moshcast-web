@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { library as libraryAPI } from '../utils/api'
 import SongRow from '../components/SongRow'
+import EditSongModal from '../components/EditSongModal'
 import { Clock, Music, Loader2, Search } from 'lucide-react'
 
 export default function Library() {
@@ -10,6 +11,7 @@ export default function Library() {
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('created_at')
   const [sortOrder, setSortOrder] = useState('DESC')
+  const [editingSong, setEditingSong] = useState(null)
 
   useEffect(() => {
     loadLibrary()
@@ -25,6 +27,22 @@ export default function Library() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Handle song deletion
+  const handleDelete = (songId) => {
+    setSongs(prev => prev.filter(s => s.id !== songId))
+  }
+
+  // Handle song edit
+  const handleEdit = (song) => {
+    setEditingSong(song)
+  }
+
+  // Handle song update from modal
+  const handleSongUpdated = (updatedSong) => {
+    setSongs(prev => prev.map(s => s.id === updatedSong.id ? updatedSong : s))
+    setEditingSong(null)
   }
 
   // Filter songs by search
@@ -151,9 +169,20 @@ export default function Library() {
               song={song} 
               index={index}
               queue={filteredSongs}
+              onDelete={handleDelete}
+              onEdit={handleEdit}
             />
           ))}
         </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingSong && (
+        <EditSongModal
+          song={editingSong}
+          onClose={() => setEditingSong(null)}
+          onSave={handleSongUpdated}
+        />
       )}
     </div>
   )
