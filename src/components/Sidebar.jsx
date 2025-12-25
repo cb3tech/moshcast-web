@@ -12,13 +12,14 @@ export default function Sidebar() {
   return (
     <aside className="w-64 bg-mosh-black flex flex-col h-full">
       {/* Logo */}
-      <div className="p-6">
+      <div className="p-6 pb-4">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-mosh-accent rounded-lg flex items-center justify-center">
             <Music className="w-5 h-5 text-mosh-black" />
           </div>
           <span className="text-xl font-bold text-mosh-light">Moshcast</span>
         </div>
+        <p className="text-xs text-mosh-muted mt-2 ml-10">Your music. Your library. Everywhere.</p>
       </div>
 
       {/* Main Navigation */}
@@ -55,8 +56,7 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className="p-4 text-xs text-mosh-muted">
-        <p>Your music. Your library.</p>
-        <p className="mt-1">Everywhere.</p>
+        <p>© 2025 Moshcast</p>
       </div>
     </aside>
   )
