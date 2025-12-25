@@ -13,7 +13,8 @@ export default function Sidebar() {
     <div className="w-64 bg-mosh-dark flex flex-col h-full">
       {/* Logo */}
       <div className="p-6">
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">🤘</span>
           <h1 className="text-2xl font-bold text-mosh-light">Moshcast</h1>
           <span className="text-sm font-semibold text-mosh-accent -rotate-12">BETA</span>
         </div>
