@@ -4,7 +4,7 @@ import { usePlayer } from '../context/PlayerContext'
 import { 
   Radio, Users, Send, Music, Play, Pause, 
   MicOff, Copy, Check,
-  MessageCircle, Link, Lock, UserPlus
+  MessageCircle, Link, Lock, UserPlus, Smartphone
 } from 'lucide-react'
 
 const MAX_LISTENERS = 10
@@ -119,9 +119,12 @@ export default function GoLive() {
     const urls = {
       twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(link)}`,
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}`,
+      sms: `sms:?&body=${encodeURIComponent(`${text} ${link}`)}`,
     }
     
-    if (urls[platform]) {
+    if (platform === 'sms') {
+      window.location.href = urls.sms
+    } else if (urls[platform]) {
       window.open(urls[platform], '_blank', 'width=600,height=400')
     }
   }
@@ -272,6 +275,13 @@ export default function GoLive() {
               {/* Social Share */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-mosh-muted">Share via:</span>
+                <button
+                  onClick={() => shareToSocial('sms')}
+                  className="p-2 bg-mosh-dark hover:bg-mosh-hover rounded-lg transition"
+                  title="Share via SMS"
+                >
+                  <Smartphone className="w-4 h-4 text-mosh-light" />
+                </button>
                 <button
                   onClick={() => shareToSocial('twitter')}
                   className="p-2 bg-mosh-dark hover:bg-mosh-hover rounded-lg transition"
