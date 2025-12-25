@@ -1,7 +1,7 @@
 {
   "name": "moshcast-web",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,8 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.0",
     "howler": "^2.2.4",
-    "lucide-react": "^0.294.0"
+    "lucide-react": "^0.294.0",
+    "socket.io-client": "^4.7.2"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",
