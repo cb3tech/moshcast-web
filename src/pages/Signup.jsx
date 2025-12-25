@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Music, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 export default function Signup() {
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   
@@ -19,6 +20,11 @@ export default function Signup() {
     setError('')
 
     // Validation
+    if (!acceptedTerms) {
+      setError('You must accept the Terms of Service and Privacy Policy')
+      return
+    }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       return
@@ -51,7 +57,7 @@ export default function Signup() {
       {/* Logo */}
       <div className="flex items-center gap-3 mb-8">
         <div className="w-12 h-12 bg-mosh-accent rounded-full flex items-center justify-center">
-          <Music className="w-7 h-7 text-mosh-black" />
+          <span className="text-2xl">🤘</span>
         </div>
         <span className="text-3xl font-bold text-mosh-light">Moshcast</span>
       </div>
@@ -127,9 +133,30 @@ export default function Signup() {
             />
           </div>
 
+          {/* Terms Acceptance */}
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="terms"
+              checked={acceptedTerms}
+              onChange={(e) => setAcceptedTerms(e.target.checked)}
+              className="mt-1 w-4 h-4 rounded border-mosh-border bg-mosh-card text-mosh-accent focus:ring-mosh-accent focus:ring-offset-0 cursor-pointer"
+            />
+            <label htmlFor="terms" className="text-sm text-mosh-text cursor-pointer">
+              I agree to the{' '}
+              <Link to="/terms" target="_blank" className="text-mosh-accent hover:underline">
+                Terms of Service
+              </Link>
+              {' '}and{' '}
+              <Link to="/privacy" target="_blank" className="text-mosh-accent hover:underline">
+                Privacy Policy
+              </Link>
+            </label>
+          </div>
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !acceptedTerms}
             className="w-full py-3 bg-mosh-accent hover:bg-mosh-accent-hover text-mosh-black font-bold rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
             {loading ? (
@@ -141,7 +168,7 @@ export default function Signup() {
         </form>
 
         <p className="mt-6 text-xs text-mosh-muted text-center">
-          By signing up, you agree to upload only music you own or have rights to stream.
+          Only upload music you own or have rights to stream.
         </p>
 
         <div className="mt-6 pt-6 border-t border-mosh-border text-center">
