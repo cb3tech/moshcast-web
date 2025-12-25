@@ -10,6 +10,7 @@ import Home from './pages/Home'
 import Library from './pages/Library'
 import Upload from './pages/Upload'
 import GoLive from './pages/GoLive'
+import JoinStream from './pages/JoinStream'
 import Playlists from './pages/Playlists'
 import Favorites from './pages/Favorites'
 import { Loader2 } from 'lucide-react'
@@ -58,6 +59,7 @@ export default function App() {
       {/* Public routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/join/:username" element={<JoinStream />} />
 
       {/* Protected routes */}
       <Route path="/" element={
