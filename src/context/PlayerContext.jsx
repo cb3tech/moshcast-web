@@ -12,7 +12,7 @@ export function PlayerProvider({ children }) {
   const [queue, setQueue] = useState([])
   const [queueIndex, setQueueIndex] = useState(0)
   const [shuffle, setShuffle] = useState(false)
-  const [repeat, setRepeat] = useState('none') // none, all, one
+  const [autoplay, setAutoplay] = useState(true) // Autoplay next song by default
   
   const howlRef = useRef(null)
   const progressInterval = useRef(null)
@@ -113,18 +113,16 @@ export function PlayerProvider({ children }) {
   }
 
   const handleSongEnd = () => {
-    if (repeat === 'one') {
-      // Repeat current song
-      howlRef.current.seek(0)
-      howlRef.current.play()
-    } else if (queueIndex < queue.length - 1) {
-      // Play next in queue
-      nextSong()
-    } else if (repeat === 'all' && queue.length > 0) {
-      // Repeat queue from beginning
-      playSong(queue[0], queue, 0)
+    if (autoplay) {
+      // Autoplay ON: play next song if available
+      if (queueIndex < queue.length - 1) {
+        nextSong()
+      } else {
+        // End of queue - stop
+        setIsPlaying(false)
+      }
     } else {
-      // End of queue
+      // Autoplay OFF: stop after current song
       setIsPlaying(false)
     }
   }
@@ -170,7 +168,11 @@ export function PlayerProvider({ children }) {
       const randomSong = available[Math.floor(Math.random() * available.length)]
       nextIndex = queue.indexOf(randomSong)
     } else {
-      nextIndex = (queueIndex + 1) % queue.length
+      nextIndex = queueIndex + 1
+      // Stop at end of queue (no wrap around)
+      if (nextIndex >= queue.length) {
+        return
+      }
     }
 
     playSong(queue[nextIndex], queue, nextIndex)
@@ -192,7 +194,12 @@ export function PlayerProvider({ children }) {
       const randomSong = available[Math.floor(Math.random() * available.length)]
       prevIndex = queue.indexOf(randomSong)
     } else {
-      prevIndex = (queueIndex - 1 + queue.length) % queue.length
+      prevIndex = queueIndex - 1
+      // Stop at beginning (no wrap around)
+      if (prevIndex < 0) {
+        seek(0)
+        return
+      }
     }
 
     playSong(queue[prevIndex], queue, prevIndex)
@@ -202,10 +209,8 @@ export function PlayerProvider({ children }) {
     setShuffle(!shuffle)
   }
 
-  const toggleRepeat = () => {
-    const modes = ['none', 'all', 'one']
-    const currentIndex = modes.indexOf(repeat)
-    setRepeat(modes[(currentIndex + 1) % modes.length])
+  const toggleAutoplay = () => {
+    setAutoplay(!autoplay)
   }
 
   return (
@@ -218,7 +223,7 @@ export function PlayerProvider({ children }) {
       queue,
       queueIndex,
       shuffle,
-      repeat,
+      autoplay,
       howlRef,
       playSong,
       togglePlay,
@@ -227,7 +232,7 @@ export function PlayerProvider({ children }) {
       nextSong,
       prevSong,
       toggleShuffle,
-      toggleRepeat
+      toggleAutoplay
     }}>
       {children}
     </PlayerContext.Provider>
