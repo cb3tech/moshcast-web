@@ -7,7 +7,7 @@ import {
   MessageCircle, Link, Lock, UserPlus, Smartphone
 } from 'lucide-react'
 
-const MAX_LISTENERS = 10
+const MAX_LISTENERS = 50
 
 export default function GoLive() {
   const { user } = useAuth()
