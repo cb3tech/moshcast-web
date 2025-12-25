@@ -18,11 +18,6 @@ export default function Player() {
 
   const [showVolume, setShowVolume] = useState(false)
   const [showQueue, setShowQueue] = useState(false)
-  const canvasRef = useRef(null)
-  const animationRef = useRef(null)
-  const analyserRef = useRef(null)
-  const audioContextRef = useRef(null)
-  const sourceCreatedRef = useRef(new Set())
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -78,72 +73,8 @@ export default function Player() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [togglePlay, seek, setVolume, nextSong, prevSong, progress, duration, volume, toggleShuffle, toggleRepeat])
 
-  // Waveform visualizer
-  useEffect(() => {
-    if (!currentSong || !howlRef?.current?._sounds?.[0]?._node) return
-
-    const audioNode = howlRef.current._sounds[0]._node
-    const songId = currentSong.id
-
-    // Only create audio context once
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)()
-    }
-
-    if (!analyserRef.current) {
-      analyserRef.current = audioContextRef.current.createAnalyser()
-      analyserRef.current.fftSize = 256
-    }
-
-    // Create source only once per audio node
-    if (!sourceCreatedRef.current.has(songId) && audioNode) {
-      try {
-        const source = audioContextRef.current.createMediaElementSource(audioNode)
-        source.connect(analyserRef.current)
-        analyserRef.current.connect(audioContextRef.current.destination)
-        sourceCreatedRef.current.add(songId)
-      } catch (e) {
-        // Source might already be connected
-      }
-    }
-
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const ctx = canvas.getContext('2d')
-    const analyser = analyserRef.current
-    const bufferLength = analyser.frequencyBinCount
-    const dataArray = new Uint8Array(bufferLength)
-
-    const draw = () => {
-      analyser.getByteFrequencyData(dataArray)
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-      const barWidth = (canvas.width / bufferLength) * 2.5
-      let x = 0
-
-      for (let i = 0; i < bufferLength; i++) {
-        const barHeight = (dataArray[i] / 255) * canvas.height * 0.8
-
-        // Gradient from accent color
-        ctx.fillStyle = `rgba(29, 185, 84, ${0.4 + (dataArray[i] / 255) * 0.6})`
-        ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight)
-
-        x += barWidth + 1
-      }
-
-      animationRef.current = requestAnimationFrame(draw)
-    }
-
-    draw()
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current)
-      }
-    }
-  }, [currentSong?.id, howlRef])
+  // VISUALIZER DISABLED FOR TESTING
+  // The AudioContext/MediaElementSource was causing CORS issues
 
   if (!currentSong) {
     return (
@@ -158,13 +89,7 @@ export default function Player() {
   return (
     <>
       <div className="fixed bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-mosh-black to-mosh-darker border-t border-mosh-border">
-        {/* Waveform Visualizer */}
-        <canvas 
-          ref={canvasRef}
-          width={800}
-          height={40}
-          className="absolute top-0 left-0 right-0 w-full h-10 opacity-50"
-        />
+        {/* Visualizer canvas removed for testing */}
 
         <div className="relative h-full flex items-center px-4 gap-4">
           {/* Song Info */}
