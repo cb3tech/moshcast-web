@@ -1,12 +1,34 @@
-import { Play, Pause, MoreHorizontal, Music } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Play, Pause, MoreHorizontal, Music, Trash2, Edit2 } from 'lucide-react'
 import { usePlayer } from '../context/PlayerContext'
 import { formatDuration } from '../utils/format'
+import { library as libraryAPI } from '../utils/api'
 
-export default function SongRow({ song, index, queue = [], showIndex = true }) {
+export default function SongRow({ song, index, queue = [], showIndex = true, onDelete, onEdit }) {
   const { currentSong, isPlaying, playSong, togglePlay } = usePlayer()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const menuRef = useRef(null)
   
   const isCurrentSong = currentSong?.id === song.id
   const isThisPlaying = isCurrentSong && isPlaying
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false)
+      }
+    }
+    
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [menuOpen])
 
   const handleClick = () => {
     if (isCurrentSong) {
@@ -16,11 +38,41 @@ export default function SongRow({ song, index, queue = [], showIndex = true }) {
     }
   }
 
+  const handleDelete = async (e) => {
+    e.stopPropagation()
+    
+    if (!confirm(`Delete "${song.title}"? This cannot be undone.`)) {
+      return
+    }
+    
+    setDeleting(true)
+    setMenuOpen(false)
+    
+    try {
+      await libraryAPI.deleteSong(song.id)
+      if (onDelete) {
+        onDelete(song.id)
+      }
+    } catch (err) {
+      alert('Failed to delete song: ' + err.message)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleEdit = (e) => {
+    e.stopPropagation()
+    setMenuOpen(false)
+    if (onEdit) {
+      onEdit(song)
+    }
+  }
+
   return (
     <div 
       className={`group flex items-center px-4 py-2 rounded-md hover:bg-mosh-hover transition cursor-pointer ${
         isCurrentSong ? 'bg-mosh-hover' : ''
-      }`}
+      } ${deleting ? 'opacity-50 pointer-events-none' : ''}`}
       onClick={handleClick}
     >
       {/* Index / Play Button */}
@@ -75,15 +127,37 @@ export default function SongRow({ song, index, queue = [], showIndex = true }) {
       </div>
 
       {/* More Options */}
-      <button 
-        className="ml-4 p-1 opacity-0 group-hover:opacity-100 text-mosh-muted hover:text-mosh-light transition"
-        onClick={(e) => {
-          e.stopPropagation()
-          // TODO: Open context menu
-        }}
-      >
-        <MoreHorizontal className="w-5 h-5" />
-      </button>
+      <div className="relative ml-4" ref={menuRef}>
+        <button 
+          className="p-1 opacity-0 group-hover:opacity-100 text-mosh-muted hover:text-mosh-light transition"
+          onClick={(e) => {
+            e.stopPropagation()
+            setMenuOpen(!menuOpen)
+          }}
+        >
+          <MoreHorizontal className="w-5 h-5" />
+        </button>
+        
+        {/* Dropdown Menu */}
+        {menuOpen && (
+          <div className="absolute right-0 top-8 w-40 bg-mosh-card border border-mosh-border rounded-md shadow-lg z-50 py-1">
+            <button
+              className="w-full px-4 py-2 text-left text-sm text-mosh-light hover:bg-mosh-hover flex items-center gap-2"
+              onClick={handleEdit}
+            >
+              <Edit2 className="w-4 h-4" />
+              Edit details
+            </button>
+            <button
+              className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-mosh-hover flex items-center gap-2"
+              onClick={handleDelete}
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
