@@ -35,7 +35,7 @@ export default function JoinStream() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Initialize Socket.IO connection
+  // Initialize Socket.IO connection - FIXED: removed audioReady dependency
   useEffect(() => {
     socketRef.current = io(API_URL, {
       transports: ['websocket', 'polling'],
@@ -67,11 +67,6 @@ export default function JoinStream() {
       
       // Store state for when audio is ready
       pendingStateRef.current = state
-      
-      // Try to sync if audio ready
-      if (audioReady && audioRef.current) {
-        syncAudio(state)
-      }
     })
 
     socketRef.current.on('stream:update', (update) => {
@@ -83,14 +78,10 @@ export default function JoinStream() {
       
       // Store for sync
       pendingStateRef.current = update
-      
-      // Sync audio if ready
-      if (audioReady && audioRef.current) {
-        syncAudio(update)
-      }
     })
 
     socketRef.current.on('stream:listeners', ({ count }) => {
+      console.log('👥 Listener count updated:', count)
       setListenerCount(count)
     })
 
@@ -103,6 +94,7 @@ export default function JoinStream() {
     })
 
     socketRef.current.on('chat:message', (msg) => {
+      console.log('💬 Chat message received:', msg)
       setMessages(prev => [...prev, {
         id: Date.now() + Math.random(),
         type: msg.type,
@@ -117,6 +109,13 @@ export default function JoinStream() {
       if (socketRef.current) {
         socketRef.current.disconnect()
       }
+    }
+  }, [])  // FIXED: Only run once on mount - DO NOT add audioReady here
+
+  // Sync audio when audioReady or pendingState changes
+  useEffect(() => {
+    if (audioReady && pendingStateRef.current && audioRef.current) {
+      syncAudio(pendingStateRef.current)
     }
   }, [audioReady])
 
