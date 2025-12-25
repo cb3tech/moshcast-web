@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Library, Upload, Search, Radio, ListMusic } from 'lucide-react'
+import { Home, Library, Upload, Search, Radio, ListMusic, Heart } from 'lucide-react'
 
 export default function Sidebar() {
   const linkClass = ({ isActive }) =>
@@ -58,6 +58,11 @@ export default function Sidebar() {
             <span>Your Library</span>
           </NavLink>
 
+          <NavLink to="/favorites" className={linkClass}>
+            <Heart className="w-5 h-5" />
+            <span>Favorites</span>
+          </NavLink>
+
           <NavLink to="/playlists" className={linkClass}>
             <ListMusic className="w-5 h-5" />
             <span>Playlists</span>
@@ -79,7 +84,7 @@ export default function Sidebar() {
       {/* Footer */}
       <div className="p-4 border-t border-mosh-border">
         <p className="text-xs text-mosh-muted text-center">
-          © 2025 Moshcast
+          © 2025 Moshcast™ | A Coinloader Company
         </p>
         <a 
           href="mailto:support@moshcast.com" 
