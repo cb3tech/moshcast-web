@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
-import { Play, Pause, MoreHorizontal, Music, Trash2, Edit2, ListPlus, Plus, X } from 'lucide-react'
+import { Play, Pause, MoreHorizontal, Music, Trash2, Edit2, ListPlus, Plus, X, Heart } from 'lucide-react'
 import { usePlayer } from '../context/PlayerContext'
 import { useAuth } from '../context/AuthContext'
+import { useFavorites } from '../context/FavoritesContext'
 import { formatDuration } from '../utils/format'
 import { library as libraryAPI, playlists as playlistsAPI } from '../utils/api'
 
 export default function SongRow({ song, index, queue = [], showIndex = true, onDelete, onEdit }) {
   const { currentSong, isPlaying, playSong, togglePlay } = usePlayer()
   const { token } = useAuth()
+  const { isFavorite, addFavorite, removeFavorite } = useFavorites()
   const [menuOpen, setMenuOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showPlaylistModal, setShowPlaylistModal] = useState(false)
@@ -18,6 +20,7 @@ export default function SongRow({ song, index, queue = [], showIndex = true, onD
   
   const isCurrentSong = currentSong?.id === song.id
   const isThisPlaying = isCurrentSong && isPlaying
+  const isFav = isFavorite(song.id)
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -41,6 +44,15 @@ export default function SongRow({ song, index, queue = [], showIndex = true, onD
       togglePlay()
     } else {
       playSong(song, queue, index)
+    }
+  }
+
+  const handleToggleFavorite = (e) => {
+    e.stopPropagation()
+    if (isFav) {
+      removeFavorite(song.id)
+    } else {
+      addFavorite(song)
     }
   }
 
@@ -159,6 +171,19 @@ export default function SongRow({ song, index, queue = [], showIndex = true, onD
           </p>
         </div>
 
+        {/* Favorite Button */}
+        <button
+          onClick={handleToggleFavorite}
+          className={`p-1 mr-2 transition ${
+            isFav 
+              ? 'text-red-500 opacity-100' 
+              : 'text-mosh-muted opacity-0 group-hover:opacity-100 hover:text-red-500'
+          }`}
+          title={isFav ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
+        </button>
+
         {/* Duration */}
         <div className="w-16 text-right">
           <span className="text-sm text-mosh-muted">
@@ -181,6 +206,13 @@ export default function SongRow({ song, index, queue = [], showIndex = true, onD
           {/* Dropdown Menu */}
           {menuOpen && (
             <div className="absolute right-0 top-8 w-48 bg-mosh-card border border-mosh-border rounded-md shadow-lg z-50 py-1">
+              <button
+                className="w-full px-4 py-2 text-left text-sm text-mosh-light hover:bg-mosh-hover flex items-center gap-2"
+                onClick={handleToggleFavorite}
+              >
+                <Heart className={`w-4 h-4 ${isFav ? 'fill-red-500 text-red-500' : ''}`} />
+                {isFav ? 'Remove from favorites' : 'Add to favorites'}
+              </button>
               <button
                 className="w-full px-4 py-2 text-left text-sm text-mosh-light hover:bg-mosh-hover flex items-center gap-2"
                 onClick={handleAddToPlaylist}
