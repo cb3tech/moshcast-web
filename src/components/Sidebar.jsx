@@ -1,63 +1,93 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Search, Library, PlusSquare, Music } from 'lucide-react'
+import { Home, Library, Upload, Search, Radio, ListMusic } from 'lucide-react'
 
 export default function Sidebar() {
   const linkClass = ({ isActive }) =>
-    `flex items-center gap-4 px-4 py-2 rounded-md transition ${
+    `flex items-center gap-3 px-3 py-2 rounded-lg transition ${
       isActive 
-        ? 'bg-mosh-card text-mosh-light' 
-        : 'text-mosh-text hover:text-mosh-light'
+        ? 'bg-mosh-hover text-mosh-light' 
+        : 'text-mosh-text hover:text-mosh-light hover:bg-mosh-hover'
     }`
 
   return (
-    <aside className="w-64 bg-mosh-black flex flex-col h-full">
+    <div className="w-64 bg-mosh-dark flex flex-col h-full">
       {/* Logo */}
-      <div className="p-6 pb-4">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-mosh-accent rounded-lg flex items-center justify-center">
-            <Music className="w-5 h-5 text-mosh-black" />
-          </div>
-          <span className="text-xl font-bold text-mosh-light">Moshcast</span>
+      <div className="p-6">
+        <div className="flex items-baseline gap-2">
+          <h1 className="text-2xl font-bold text-mosh-light">Moshcast</h1>
+          <span className="text-sm font-semibold text-mosh-accent -rotate-12">BETA</span>
         </div>
-        <p className="text-xs text-mosh-muted mt-2 ml-10">Your music. Your library. Everywhere.</p>
+        <p className="text-xs text-mosh-muted mt-1">Your music. Your library. Everywhere.</p>
       </div>
 
-      {/* Main Navigation */}
-      <nav className="px-2 space-y-1">
-        <NavLink to="/" className={linkClass}>
-          <Home className="w-6 h-6" />
-          <span className="font-medium">Home</span>
+      {/* Go Live - Primary CTA */}
+      <div className="px-4 mb-4">
+        <NavLink
+          to="/live"
+          className={({ isActive }) =>
+            `flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold transition ${
+              isActive
+                ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white'
+                : 'bg-gradient-to-r from-red-500/80 to-pink-500/80 hover:from-red-500 hover:to-pink-500 text-white'
+            }`
+          }
+        >
+          <Radio className="w-5 h-5" />
+          <span>Go Live</span>
         </NavLink>
-        
-        <NavLink to="/search" className={linkClass}>
-          <Search className="w-6 h-6" />
-          <span className="font-medium">Search</span>
-        </NavLink>
-        
-        <NavLink to="/library" className={linkClass}>
-          <Library className="w-6 h-6" />
-          <span className="font-medium">Your Library</span>
-        </NavLink>
-      </nav>
+      </div>
 
       {/* Divider */}
-      <div className="my-4 mx-4 border-t border-mosh-border" />
+      <div className="mx-4 mb-4 border-t border-mosh-border" />
 
-      {/* Actions */}
-      <nav className="px-2 space-y-1">
-        <NavLink to="/upload" className={linkClass}>
-          <PlusSquare className="w-6 h-6" />
-          <span className="font-medium">Upload Music</span>
-        </NavLink>
+      {/* Main Nav */}
+      <nav className="flex-1 px-4">
+        <div className="space-y-1">
+          <NavLink to="/" className={linkClass} end>
+            <Home className="w-5 h-5" />
+            <span>Home</span>
+          </NavLink>
+          
+          <NavLink to="/search" className={linkClass}>
+            <Search className="w-5 h-5" />
+            <span>Search</span>
+          </NavLink>
+          
+          <NavLink to="/library" className={linkClass}>
+            <Library className="w-5 h-5" />
+            <span>Your Library</span>
+          </NavLink>
+
+          <NavLink to="/playlists" className={linkClass}>
+            <ListMusic className="w-5 h-5" />
+            <span>Playlists</span>
+          </NavLink>
+        </div>
+
+        {/* Divider */}
+        <div className="my-4 border-t border-mosh-border" />
+
+        {/* Actions */}
+        <div className="space-y-1">
+          <NavLink to="/upload" className={linkClass}>
+            <Upload className="w-5 h-5" />
+            <span>Upload Music</span>
+          </NavLink>
+        </div>
       </nav>
 
-      {/* Spacer */}
-      <div className="flex-1" />
-
       {/* Footer */}
-      <div className="p-4 text-xs text-mosh-muted">
-        <p>© 2025 Moshcast</p>
+      <div className="p-4 border-t border-mosh-border">
+        <p className="text-xs text-mosh-muted text-center">
+          © 2025 Moshcast
+        </p>
+        <a 
+          href="mailto:support@moshcast.com" 
+          className="block text-xs text-mosh-muted hover:text-mosh-accent text-center mt-1 transition"
+        >
+          Contact Us
+        </a>
       </div>
-    </aside>
+    </div>
   )
 }
