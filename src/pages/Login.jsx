@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Music, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -32,7 +32,7 @@ export default function Login() {
       {/* Logo */}
       <div className="flex items-center gap-3 mb-8">
         <div className="w-12 h-12 bg-mosh-accent rounded-full flex items-center justify-center">
-          <Music className="w-7 h-7 text-mosh-black" />
+          <span className="text-2xl">🤘</span>
         </div>
         <span className="text-3xl font-bold text-mosh-light">Moshcast</span>
       </div>
@@ -40,7 +40,7 @@ export default function Login() {
       {/* Card */}
       <div className="w-full max-w-md bg-mosh-darker rounded-lg p-8">
         <h1 className="text-2xl font-bold text-center mb-8">Log in to Moshcast</h1>
-
+        
         {error && (
           <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-md mb-6 text-sm">
             {error}
