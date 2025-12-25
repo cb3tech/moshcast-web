@@ -31,9 +31,9 @@ export default function GoLive() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Generate session code
-  const generateSessionCode = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase()
+  // Session code based on username (permanent link)
+  const getSessionCode = () => {
+    return user?.username?.toUpperCase() || 'LIVE'
   }
 
   // Auto-scroll chat
@@ -59,7 +59,7 @@ export default function GoLive() {
       alert('Select a song to play before going live!')
       return
     }
-    const code = generateSessionCode()
+    const code = getSessionCode()
     setSessionCode(code)
     setIsLive(true)
     setListeners(1)
