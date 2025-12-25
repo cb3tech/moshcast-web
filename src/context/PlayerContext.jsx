@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useRef, useEffect } from 'react'
+import { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react'
 import { Howl } from 'howler'
 
 const PlayerContext = createContext()
@@ -16,6 +16,22 @@ export function PlayerProvider({ children }) {
   
   const howlRef = useRef(null)
   const progressInterval = useRef(null)
+  
+  // Refs to track current values for callbacks (avoid stale closures)
+  const queueRef = useRef(queue)
+  const queueIndexRef = useRef(queueIndex)
+  const autoplayRef = useRef(autoplay)
+  const shuffleRef = useRef(shuffle)
+  
+  // Keep refs in sync
+  useEffect(() => { queueRef.current = queue }, [queue])
+  useEffect(() => { queueIndexRef.current = queueIndex }, [queueIndex])
+  useEffect(() => { autoplayRef.current = autoplay }, [autoplay])
+  useEffect(() => { shuffleRef.current = shuffle }, [shuffle])
+
+  // Ref for playSongInternal to avoid stale closures
+  const playSongInternalRef = useRef(null)
+  const handleSongEndRef = useRef(null)
 
   // Cleanup on unmount
   useEffect(() => {
@@ -50,33 +66,88 @@ export function PlayerProvider({ children }) {
     }
   }, [isPlaying])
 
-  const playSong = (song, newQueue = [], index = 0) => {
-    console.log('🎵 playSong called:', { song, queueLength: newQueue.length, index })
+  // Play next song (used by handleSongEnd and nextSong button)
+  const playNextSong = useCallback(() => {
+    const currentQueue = queueRef.current
+    const currentIndex = queueIndexRef.current
+    const isShuffle = shuffleRef.current
     
-    // Validate song has file_url
+    console.log('🎵 playNextSong:', { currentIndex, queueLength: currentQueue.length, isShuffle })
+    
+    if (currentQueue.length === 0) return false
+
+    let nextIndex
+    if (isShuffle) {
+      // Random song (not current)
+      const available = currentQueue.filter((_, i) => i !== currentIndex)
+      if (available.length === 0) return false
+      const randomSong = available[Math.floor(Math.random() * available.length)]
+      nextIndex = currentQueue.indexOf(randomSong)
+    } else {
+      nextIndex = currentIndex + 1
+      console.log('🎵 Calculated nextIndex:', nextIndex)
+      // Stop at end of queue (no wrap around)
+      if (nextIndex >= currentQueue.length) {
+        console.log('🎵 End of queue reached')
+        return false
+      }
+    }
+
+    // Play the next song via ref (avoids stale closure)
+    const nextSongToPlay = currentQueue[nextIndex]
+    console.log('🎵 Playing next song:', nextSongToPlay?.title, 'at index', nextIndex)
+    if (nextSongToPlay && playSongInternalRef.current) {
+      playSongInternalRef.current(nextSongToPlay, currentQueue, nextIndex)
+      return true
+    }
+    return false
+  }, [])
+
+  const handleSongEnd = useCallback(() => {
+    console.log('🎵 Song ended, autoplay:', autoplayRef.current)
+    if (autoplayRef.current) {
+      // Autoplay ON: play next song if available
+      const played = playNextSong()
+      if (!played) {
+        // End of queue - stop
+        setIsPlaying(false)
+      }
+    } else {
+      // Autoplay OFF: stop after current song
+      setIsPlaying(false)
+    }
+  }, [playNextSong])
+  
+  // Keep handleSongEnd ref updated
+  handleSongEndRef.current = handleSongEnd
+
+  // Internal play function (doesn't depend on state)
+  const playSongInternal = (song, songQueue, index) => {
+    console.log('🎵 playSongInternal:', { song: song?.title, index, queueLength: songQueue.length })
+    
     if (!song?.file_url) {
       console.error('Cannot play song: missing file_url', song)
       return
     }
-    
-    console.log('🎵 Playing URL:', song.file_url)
 
     // Stop current song
     if (howlRef.current) {
       howlRef.current.unload()
     }
 
-    // Update queue
-    if (newQueue.length > 0) {
-      setQueue(newQueue)
-      setQueueIndex(index)
-    }
-
+    // Update refs IMMEDIATELY (don't wait for useEffect)
+    queueRef.current = songQueue
+    queueIndexRef.current = index
+    
+    // Also update React state
+    setQueue(songQueue)
+    setQueueIndex(index)
     setCurrentSong(song)
+    
+    console.log('🎵 Updated queueIndexRef to:', queueIndexRef.current)
     setProgress(0)
 
     // Create new Howl
-    console.log('🎵 Creating Howl instance...')
     howlRef.current = new Howl({
       src: [song.file_url],
       html5: true,
@@ -94,37 +165,31 @@ export function PlayerProvider({ children }) {
         setIsPlaying(false)
       },
       onend: () => {
-        handleSongEnd()
+        // Use ref to always get latest handleSongEnd
+        if (handleSongEndRef.current) {
+          handleSongEndRef.current()
+        }
       },
       onloaderror: (id, error) => {
         console.error('🎵 Howl load error:', error)
       },
       onplayerror: (id, error) => {
         console.error('🎵 Howl play error:', error)
-        // Try to unlock and replay
         howlRef.current.once('unlock', () => {
           howlRef.current.play()
         })
       }
     })
 
-    console.log('🎵 Calling howlRef.current.play()')
     howlRef.current.play()
   }
+  
+  // Keep playSongInternal ref updated
+  playSongInternalRef.current = playSongInternal
 
-  const handleSongEnd = () => {
-    if (autoplay) {
-      // Autoplay ON: play next song if available
-      if (queueIndex < queue.length - 1) {
-        nextSong()
-      } else {
-        // End of queue - stop
-        setIsPlaying(false)
-      }
-    } else {
-      // Autoplay OFF: stop after current song
-      setIsPlaying(false)
-    }
+  const playSong = (song, newQueue = [], index = 0) => {
+    console.log('🎵 playSong called:', { song: song?.title, queueLength: newQueue.length, index })
+    playSongInternal(song, newQueue.length > 0 ? newQueue : queue, index)
   }
 
   const togglePlay = () => {
@@ -158,28 +223,14 @@ export function PlayerProvider({ children }) {
   }
 
   const nextSong = () => {
-    if (queue.length === 0) return
-
-    let nextIndex
-    if (shuffle) {
-      // Random song (not current)
-      const available = queue.filter((_, i) => i !== queueIndex)
-      if (available.length === 0) return
-      const randomSong = available[Math.floor(Math.random() * available.length)]
-      nextIndex = queue.indexOf(randomSong)
-    } else {
-      nextIndex = queueIndex + 1
-      // Stop at end of queue (no wrap around)
-      if (nextIndex >= queue.length) {
-        return
-      }
-    }
-
-    playSong(queue[nextIndex], queue, nextIndex)
+    playNextSong()
   }
 
   const prevSong = () => {
-    if (queue.length === 0) return
+    const currentQueue = queueRef.current
+    const currentIndex = queueIndexRef.current
+    
+    if (currentQueue.length === 0) return
 
     // If more than 3 seconds in, restart current song
     if (progress > 3) {
@@ -188,13 +239,13 @@ export function PlayerProvider({ children }) {
     }
 
     let prevIndex
-    if (shuffle) {
-      const available = queue.filter((_, i) => i !== queueIndex)
+    if (shuffleRef.current) {
+      const available = currentQueue.filter((_, i) => i !== currentIndex)
       if (available.length === 0) return
       const randomSong = available[Math.floor(Math.random() * available.length)]
-      prevIndex = queue.indexOf(randomSong)
+      prevIndex = currentQueue.indexOf(randomSong)
     } else {
-      prevIndex = queueIndex - 1
+      prevIndex = currentIndex - 1
       // Stop at beginning (no wrap around)
       if (prevIndex < 0) {
         seek(0)
@@ -202,7 +253,9 @@ export function PlayerProvider({ children }) {
       }
     }
 
-    playSong(queue[prevIndex], queue, prevIndex)
+    if (playSongInternalRef.current) {
+      playSongInternalRef.current(currentQueue[prevIndex], currentQueue, prevIndex)
+    }
   }
 
   const toggleShuffle = () => {
