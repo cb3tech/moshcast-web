@@ -87,12 +87,28 @@ export default function Sidebar() {
         <p className="text-xs text-mosh-muted text-center">
           © 2025 Moshcast™ | A Coinloader Company
         </p>
-        <a 
-          href="mailto:support@moshcast.com" 
-          className="block text-xs text-mosh-muted hover:text-mosh-accent text-center mt-1 transition"
-        >
-          Contact Us
-        </a>
+        <div className="flex items-center justify-center gap-2 mt-2">
+          <NavLink 
+            to="/terms" 
+            className="text-xs text-mosh-muted hover:text-mosh-accent transition"
+          >
+            Terms
+          </NavLink>
+          <span className="text-mosh-muted">·</span>
+          <NavLink 
+            to="/privacy" 
+            className="text-xs text-mosh-muted hover:text-mosh-accent transition"
+          >
+            Privacy
+          </NavLink>
+          <span className="text-mosh-muted">·</span>
+          <a 
+            href="mailto:support@moshcast.com" 
+            className="text-xs text-mosh-muted hover:text-mosh-accent transition"
+          >
+            Contact
+          </a>
+        </div>
       </div>
     </div>
   )
