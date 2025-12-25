@@ -3,8 +3,8 @@ import { usePlayer } from '../context/PlayerContext'
 import { formatDuration } from '../utils/format'
 import { 
   Play, Pause, SkipBack, SkipForward, 
-  Volume2, VolumeX, Shuffle, Repeat, Repeat1,
-  Music, List, X
+  Volume2, VolumeX, Shuffle, ListEnd,
+  Music, List
 } from 'lucide-react'
 import QueuePanel from './QueuePanel'
 
@@ -12,13 +12,12 @@ export default function Player() {
   const { 
     currentSong, isPlaying, progress, duration, volume,
     togglePlay, seek, setVolume, nextSong, prevSong,
-    shuffle, toggleShuffle, repeat, toggleRepeat,
+    shuffle, toggleShuffle, autoplay, toggleAutoplay,
     queue, queueIndex, howlRef
   } = usePlayer()
 
   const [showVolume, setShowVolume] = useState(false)
   const [showQueue, setShowQueue] = useState(false)
-  const [minimized, setMinimized] = useState(false)
   const canvasRef = useRef(null)
   const animationRef = useRef(null)
 
@@ -64,16 +63,16 @@ export default function Player() {
           e.preventDefault()
           toggleShuffle()
           break
-        case 'KeyR':
+        case 'KeyA':
           e.preventDefault()
-          toggleRepeat()
+          toggleAutoplay()
           break
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [togglePlay, seek, setVolume, nextSong, prevSong, progress, duration, volume, toggleShuffle, toggleRepeat])
+  }, [togglePlay, seek, setVolume, nextSong, prevSong, progress, duration, volume, toggleShuffle, toggleAutoplay])
 
   // Fake visualizer - animated bars without AudioContext
   useEffect(() => {
@@ -234,17 +233,13 @@ export default function Player() {
                   <SkipForward className="w-5 h-5" />
                 </button>
                 
-                {/* Repeat/Loop */}
+                {/* Autoplay */}
                 <button 
-                  onClick={toggleRepeat}
-                  className={`p-2 rounded-full transition ${repeat !== 'none' ? 'bg-mosh-accent/20 text-mosh-accent' : 'text-mosh-muted hover:text-mosh-light hover:bg-mosh-card'}`}
-                  title={`Loop: ${repeat === 'none' ? 'OFF' : repeat === 'all' ? 'ALL' : 'ONE'} (R)`}
+                  onClick={toggleAutoplay}
+                  className={`p-2 rounded-full transition ${autoplay ? 'bg-mosh-accent/20 text-mosh-accent' : 'text-mosh-muted hover:text-mosh-light hover:bg-mosh-card'}`}
+                  title={`Autoplay ${autoplay ? 'ON' : 'OFF'} (A)`}
                 >
-                  {repeat === 'one' ? (
-                    <Repeat1 className="w-4 h-4" />
-                  ) : (
-                    <Repeat className="w-4 h-4" />
-                  )}
+                  <ListEnd className="w-4 h-4" />
                 </button>
               </div>
 
@@ -289,18 +284,17 @@ export default function Player() {
               </div>
             </div>
 
-            {/* Loop/Shuffle Status Indicators */}
-            {(shuffle || repeat !== 'none') && (
+            {/* Status Indicators */}
+            {(shuffle || autoplay) && (
               <div className="flex items-center justify-center gap-3 mt-2 pt-2 border-t border-mosh-border/50">
                 {shuffle && (
                   <span className="text-xs text-mosh-accent flex items-center gap-1">
                     <Shuffle className="w-3 h-3" /> Shuffle ON
                   </span>
                 )}
-                {repeat !== 'none' && (
+                {autoplay && (
                   <span className="text-xs text-mosh-accent flex items-center gap-1">
-                    {repeat === 'one' ? <Repeat1 className="w-3 h-3" /> : <Repeat className="w-3 h-3" />}
-                    Loop {repeat === 'all' ? 'ALL' : 'ONE'}
+                    <ListEnd className="w-3 h-3" /> Autoplay ON
                   </span>
                 )}
               </div>
