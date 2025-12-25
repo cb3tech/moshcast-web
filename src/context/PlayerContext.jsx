@@ -1,21 +1,21 @@
 import { createContext, useContext, useState, useRef, useEffect } from 'react'
 import { Howl } from 'howler'
 
-const PlayerContext = createContext(null)
+const PlayerContext = createContext()
 
 export function PlayerProvider({ children }) {
   const [currentSong, setCurrentSong] = useState(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [volume, setVolumeState] = useState(0.7)
   const [queue, setQueue] = useState([])
   const [queueIndex, setQueueIndex] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [duration, setDuration] = useState(0)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [volume, setVolume] = useState(0.8)
   const [shuffle, setShuffle] = useState(false)
-  const [repeat, setRepeat] = useState('none') // 'none', 'all', 'one'
+  const [repeat, setRepeat] = useState('none') // none, all, one
   
   const howlRef = useRef(null)
-  const timeInterval = useRef(null)
+  const progressInterval = useRef(null)
 
   // Cleanup on unmount
   useEffect(() => {
@@ -23,114 +23,108 @@ export function PlayerProvider({ children }) {
       if (howlRef.current) {
         howlRef.current.unload()
       }
-      if (timeInterval.current) {
-        clearInterval(timeInterval.current)
+      if (progressInterval.current) {
+        clearInterval(progressInterval.current)
       }
     }
   }, [])
 
-  // Update time tracking
-  const startTimeTracking = () => {
-    if (timeInterval.current) {
-      clearInterval(timeInterval.current)
-    }
-    timeInterval.current = setInterval(() => {
-      if (howlRef.current && howlRef.current.playing()) {
-        setCurrentTime(howlRef.current.seek())
+  // Update progress
+  useEffect(() => {
+    if (isPlaying) {
+      progressInterval.current = setInterval(() => {
+        if (howlRef.current) {
+          setProgress(howlRef.current.seek() || 0)
+        }
+      }, 1000)
+    } else {
+      if (progressInterval.current) {
+        clearInterval(progressInterval.current)
       }
-    }, 1000)
-  }
-
-  const stopTimeTracking = () => {
-    if (timeInterval.current) {
-      clearInterval(timeInterval.current)
     }
-  }
 
-  // Play a song
-  const playSong = (song, songQueue = [], index = 0) => {
+    return () => {
+      if (progressInterval.current) {
+        clearInterval(progressInterval.current)
+      }
+    }
+  }, [isPlaying])
+
+  const playSong = (song, newQueue = [], index = 0) => {
     // Validate song has file_url
-    if (!song || !song.file_url) {
+    if (!song?.file_url) {
       console.error('Cannot play song: missing file_url', song)
       return
     }
 
-    console.log('Playing song:', song.title, song.file_url)
-
-    // Stop current playback
+    // Stop current song
     if (howlRef.current) {
       howlRef.current.unload()
     }
-    stopTimeTracking()
 
-    // Set up new song
+    // Update queue
+    if (newQueue.length > 0) {
+      setQueue(newQueue)
+      setQueueIndex(index)
+    }
+
     setCurrentSong(song)
-    setQueue(songQueue.length > 0 ? songQueue : [song])
-    setQueueIndex(songQueue.length > 0 ? index : 0)
-    setCurrentTime(0)
-    setDuration(song.duration || 0)
+    setProgress(0)
 
-    // Create new Howl instance
+    // Create new Howl
     howlRef.current = new Howl({
       src: [song.file_url],
-      html5: true, // Required for streaming large files
+      html5: true,
       volume: volume,
       format: ['mp3', 'm4a', 'aac', 'flac', 'wav', 'ogg'],
       onload: () => {
-        console.log('Howl loaded, duration:', howlRef.current.duration())
         setDuration(howlRef.current.duration())
       },
       onplay: () => {
-        console.log('Howl playing')
         setIsPlaying(true)
-        startTimeTracking()
       },
       onpause: () => {
         setIsPlaying(false)
-        stopTimeTracking()
       },
       onend: () => {
         handleSongEnd()
       },
-      onloaderror: (id, err) => {
-        console.error('Howl load error:', id, err)
-        setIsPlaying(false)
+      onloaderror: (id, error) => {
+        console.error('Load error:', error)
       },
-      onplayerror: (id, err) => {
-        console.error('Howl play error:', id, err)
-        setIsPlaying(false)
-        // Try to unlock and play again
-        if (howlRef.current) {
-          howlRef.current.once('unlock', () => {
-            howlRef.current.play()
-          })
-        }
-      },
+      onplayerror: (id, error) => {
+        console.error('Play error:', error)
+        // Try to unlock and replay
+        howlRef.current.once('unlock', () => {
+          howlRef.current.play()
+        })
+      }
     })
 
     howlRef.current.play()
   }
 
-  // Handle song end
   const handleSongEnd = () => {
     if (repeat === 'one') {
+      // Repeat current song
       howlRef.current.seek(0)
       howlRef.current.play()
     } else if (queueIndex < queue.length - 1) {
-      playNext()
-    } else if (repeat === 'all') {
+      // Play next in queue
+      nextSong()
+    } else if (repeat === 'all' && queue.length > 0) {
+      // Repeat queue from beginning
       playSong(queue[0], queue, 0)
     } else {
+      // End of queue
       setIsPlaying(false)
-      stopTimeTracking()
     }
   }
 
-  // Play/pause toggle
   const togglePlay = () => {
     if (!howlRef.current) {
-      // If no howl but we have a current song, recreate it
-      if (currentSong && currentSong.file_url) {
+      // If no song loaded but we have a current song, reload it
+      if (currentSong?.file_url) {
         playSong(currentSong, queue, queueIndex)
       }
       return
@@ -143,13 +137,30 @@ export function PlayerProvider({ children }) {
     }
   }
 
-  // Play next song
-  const playNext = () => {
+  const seek = (time) => {
+    if (howlRef.current) {
+      howlRef.current.seek(time)
+      setProgress(time)
+    }
+  }
+
+  const setVolume = (vol) => {
+    setVolumeState(vol)
+    if (howlRef.current) {
+      howlRef.current.volume(vol)
+    }
+  }
+
+  const nextSong = () => {
     if (queue.length === 0) return
 
     let nextIndex
     if (shuffle) {
-      nextIndex = Math.floor(Math.random() * queue.length)
+      // Random song (not current)
+      const available = queue.filter((_, i) => i !== queueIndex)
+      if (available.length === 0) return
+      const randomSong = available[Math.floor(Math.random() * available.length)]
+      nextIndex = queue.indexOf(randomSong)
     } else {
       nextIndex = (queueIndex + 1) % queue.length
     }
@@ -157,48 +168,32 @@ export function PlayerProvider({ children }) {
     playSong(queue[nextIndex], queue, nextIndex)
   }
 
-  // Play previous song
-  const playPrev = () => {
+  const prevSong = () => {
     if (queue.length === 0) return
 
     // If more than 3 seconds in, restart current song
-    if (currentTime > 3) {
+    if (progress > 3) {
       seek(0)
       return
     }
 
     let prevIndex
     if (shuffle) {
-      prevIndex = Math.floor(Math.random() * queue.length)
+      const available = queue.filter((_, i) => i !== queueIndex)
+      if (available.length === 0) return
+      const randomSong = available[Math.floor(Math.random() * available.length)]
+      prevIndex = queue.indexOf(randomSong)
     } else {
-      prevIndex = queueIndex === 0 ? queue.length - 1 : queueIndex - 1
+      prevIndex = (queueIndex - 1 + queue.length) % queue.length
     }
 
     playSong(queue[prevIndex], queue, prevIndex)
   }
 
-  // Seek to position
-  const seek = (time) => {
-    if (howlRef.current) {
-      howlRef.current.seek(time)
-      setCurrentTime(time)
-    }
-  }
-
-  // Set volume
-  const changeVolume = (vol) => {
-    setVolume(vol)
-    if (howlRef.current) {
-      howlRef.current.volume(vol)
-    }
-  }
-
-  // Toggle shuffle
   const toggleShuffle = () => {
     setShuffle(!shuffle)
   }
 
-  // Cycle repeat mode
   const toggleRepeat = () => {
     const modes = ['none', 'all', 'one']
     const currentIndex = modes.indexOf(repeat)
@@ -208,22 +203,23 @@ export function PlayerProvider({ children }) {
   return (
     <PlayerContext.Provider value={{
       currentSong,
+      isPlaying,
+      progress,
+      duration,
+      volume,
       queue,
       queueIndex,
-      isPlaying,
-      duration,
-      currentTime,
-      volume,
       shuffle,
       repeat,
+      howlRef,
       playSong,
       togglePlay,
-      playNext,
-      playPrev,
       seek,
-      changeVolume,
+      setVolume,
+      nextSong,
+      prevSong,
       toggleShuffle,
-      toggleRepeat,
+      toggleRepeat
     }}>
       {children}
     </PlayerContext.Provider>
