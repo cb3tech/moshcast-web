@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { library as libraryAPI } from '../utils/api'
 import SongRow from '../components/SongRow'
+import EditSongModal from '../components/EditSongModal'
 import { Clock, Music, Loader2 } from 'lucide-react'
 
 export default function Home() {
@@ -9,6 +10,7 @@ export default function Home() {
   const [recentSongs, setRecentSongs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [editingSong, setEditingSong] = useState(null)
 
   useEffect(() => {
     loadRecentSongs()
@@ -23,6 +25,22 @@ export default function Home() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Handle song deletion
+  const handleDelete = (songId) => {
+    setRecentSongs(prev => prev.filter(s => s.id !== songId))
+  }
+
+  // Handle song edit
+  const handleEdit = (song) => {
+    setEditingSong(song)
+  }
+
+  // Handle song update from modal
+  const handleSongUpdated = (updatedSong) => {
+    setRecentSongs(prev => prev.map(s => s.id === updatedSong.id ? updatedSong : s))
+    setEditingSong(null)
   }
 
   // Get greeting based on time
@@ -94,6 +112,8 @@ export default function Home() {
                 song={song} 
                 index={index}
                 queue={recentSongs}
+                onDelete={handleDelete}
+                onEdit={handleEdit}
               />
             ))}
           </div>
@@ -131,6 +151,15 @@ export default function Home() {
             </div>
           </div>
         </section>
+      )}
+
+      {/* Edit Modal */}
+      {editingSong && (
+        <EditSongModal
+          song={editingSong}
+          onClose={() => setEditingSong(null)}
+          onSave={handleSongUpdated}
+        />
       )}
     </div>
   )
