@@ -13,6 +13,8 @@ import GoLive from './pages/GoLive'
 import JoinStream from './pages/JoinStream'
 import Playlists from './pages/Playlists'
 import Favorites from './pages/Favorites'
+import Terms from './pages/Terms'
+import Privacy from './pages/Privacy'
 import { Loader2 } from 'lucide-react'
 
 // Protected route wrapper
@@ -60,6 +62,8 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/join/:username" element={<JoinStream />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/privacy" element={<Privacy />} />
 
       {/* Protected routes */}
       <Route path="/" element={
