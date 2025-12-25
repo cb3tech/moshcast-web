@@ -1,17 +1,20 @@
 import { useState, useEffect, useRef } from 'react'
+import { io } from 'socket.io-client'
 import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/PlayerContext'
 import { 
   Radio, Users, Send, Music, Play, Pause, 
   MicOff, Copy, Check,
-  MessageCircle, Link, Lock, UserPlus, Smartphone
+  MessageCircle, Link, Lock, UserPlus, Smartphone,
+  Wifi, WifiOff
 } from 'lucide-react'
 
 const MAX_LISTENERS = 50
+const API_URL = import.meta.env.VITE_API_URL || 'https://moshcast-production.up.railway.app'
 
 export default function GoLive() {
-  const { user } = useAuth()
-  const { currentSong, isPlaying, togglePlay } = usePlayer()
+  const { user, token } = useAuth()
+  const { currentSong, isPlaying, togglePlay, progress } = usePlayer()
   const [isLive, setIsLive] = useState(false)
   const [listeners, setListeners] = useState(0)
   const [messages, setMessages] = useState([])
@@ -19,7 +22,11 @@ export default function GoLive() {
   const [copied, setCopied] = useState(false)
   const [sessionCode, setSessionCode] = useState('')
   const [isMobile, setIsMobile] = useState(false)
+  const [connected, setConnected] = useState(false)
   const messagesEndRef = useRef(null)
+  const socketRef = useRef(null)
+  const lastSongIdRef = useRef(null)
+  const lastUpdateRef = useRef(0)
 
   // Detect mobile device
   useEffect(() => {
@@ -31,86 +38,153 @@ export default function GoLive() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Session code based on username (permanent link)
-  const getSessionCode = () => {
-    return user?.username?.toUpperCase() || 'LIVE'
-  }
+  // Initialize Socket.IO connection
+  useEffect(() => {
+    socketRef.current = io(API_URL, {
+      transports: ['websocket', 'polling'],
+      autoConnect: true
+    })
+
+    socketRef.current.on('connect', () => {
+      console.log('🔌 Socket connected')
+      setConnected(true)
+    })
+
+    socketRef.current.on('disconnect', () => {
+      console.log('🔌 Socket disconnected')
+      setConnected(false)
+    })
+
+    socketRef.current.on('host:started', () => {
+      console.log('🎙️ Session started successfully')
+    })
+
+    socketRef.current.on('stream:listeners', ({ count }) => {
+      setListeners(count)
+    })
+
+    socketRef.current.on('chat:message', (msg) => {
+      setMessages(prev => [...prev, {
+        id: Date.now() + Math.random(),
+        type: msg.type,
+        username: msg.username,
+        text: msg.text,
+        timestamp: new Date(msg.timestamp),
+        isOwn: msg.senderId === socketRef.current?.id
+      }])
+    })
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect()
+      }
+    }
+  }, [])
+
+  // Send updates to listeners when playing state changes
+  useEffect(() => {
+    if (!isLive || !socketRef.current || !user) return
+
+    // Throttle updates to every 500ms
+    const now = Date.now()
+    if (now - lastUpdateRef.current < 500) return
+    lastUpdateRef.current = now
+
+    // Check if song changed
+    const songChanged = currentSong?.id !== lastSongIdRef.current
+    if (songChanged) {
+      lastSongIdRef.current = currentSong?.id
+    }
+
+    socketRef.current.emit('host:update', {
+      username: user.username,
+      song: songChanged ? {
+        id: currentSong?.id,
+        title: currentSong?.title,
+        artist: currentSong?.artist,
+        file_url: currentSong?.file_url,
+        artwork_url: currentSong?.artwork_url
+      } : undefined,
+      position: progress,
+      isPlaying: isPlaying
+    })
+  }, [isLive, currentSong, isPlaying, progress, user])
 
   // Auto-scroll chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Simulated listeners (demo mode)
-  useEffect(() => {
-    if (isLive) {
-      const interval = setInterval(() => {
-        setListeners(prev => {
-          const change = Math.floor(Math.random() * 3) - 1
-          return Math.max(1, Math.min(MAX_LISTENERS, prev + change))
-        })
-      }, 8000)
-      return () => clearInterval(interval)
-    }
-  }, [isLive])
+  const getSessionCode = () => {
+    return user?.username?.toUpperCase() || 'LIVE'
+  }
 
   const handleGoLive = () => {
     if (!currentSong) {
       alert('Select a song to play before going live!')
       return
     }
+    
+    if (!socketRef.current?.connected) {
+      alert('Not connected to server. Please wait...')
+      return
+    }
+
+    // Start session via WebSocket
+    socketRef.current.emit('host:start', {
+      username: user.username,
+      song: {
+        id: currentSong.id,
+        title: currentSong.title,
+        artist: currentSong.artist,
+        file_url: currentSong.file_url,
+        artwork_url: currentSong.artwork_url
+      }
+    })
+
     const code = getSessionCode()
     setSessionCode(code)
+    lastSongIdRef.current = currentSong.id
     setIsLive(true)
-    setListeners(1)
-    addSystemMessage(`Session started! Share your invite link with friends.`)
+    setListeners(0)
+    
+    setMessages([{
+      id: Date.now(),
+      type: 'system',
+      text: 'Session started! Share your invite link with friends.',
+      timestamp: new Date()
+    }])
   }
 
   const handleEndBroadcast = () => {
+    if (socketRef.current) {
+      socketRef.current.emit('host:end', { username: user.username })
+    }
+
     setIsLive(false)
     setListeners(0)
     setSessionCode('')
-    addSystemMessage('Session ended')
-  }
-
-  const addSystemMessage = (text) => {
+    lastSongIdRef.current = null
+    
     setMessages(prev => [...prev, {
       id: Date.now(),
       type: 'system',
-      text,
+      text: 'Session ended',
       timestamp: new Date()
     }])
   }
 
   const handleSendMessage = (e) => {
     e.preventDefault()
-    if (!newMessage.trim()) return
+    if (!newMessage.trim() || !socketRef.current) return
 
-    setMessages(prev => [...prev, {
-      id: Date.now(),
-      type: 'user',
-      username: user?.username || 'You',
-      text: newMessage.trim(),
-      timestamp: new Date(),
-      isOwn: true
-    }])
+    socketRef.current.emit('chat:send', {
+      username: user.username,
+      message: newMessage.trim(),
+      senderName: user.username
+    })
+
     setNewMessage('')
-
-    // Simulate response (demo mode)
-    if (isLive && Math.random() > 0.5) {
-      setTimeout(() => {
-        const responses = ['🔥', 'Great track!', 'Love this song', '👏', 'More like this!', 'What song is this?', 'Vibes ✨', '🎵']
-        const names = ['MusicFan', 'Listener42', 'GrooveMaster', 'BeatLover', 'TunedIn']
-        setMessages(prev => [...prev, {
-          id: Date.now(),
-          type: 'user',
-          username: names[Math.floor(Math.random() * names.length)],
-          text: responses[Math.floor(Math.random() * responses.length)],
-          timestamp: new Date(),
-          isOwn: false
-        }])
-      }, 2000 + Math.random() * 3000)
-    }
   }
 
   const getInviteLink = () => {
@@ -154,19 +228,27 @@ export default function GoLive() {
           </div>
         </div>
 
-        {isLive && (
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-mosh-light">
-              <Users className="w-5 h-5 text-mosh-accent" />
-              <span className="font-medium">{listeners}</span>
-              <span className="text-mosh-muted">/ {MAX_LISTENERS}</span>
-            </div>
-            <div className="flex items-center gap-1 px-3 py-1 bg-red-500/20 rounded-full">
-              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-              <span className="text-red-400 text-sm font-medium">LIVE</span>
-            </div>
+        <div className="flex items-center gap-4">
+          {/* Connection status */}
+          <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${connected ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+            {connected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+            {connected ? 'Connected' : 'Connecting...'}
           </div>
-        )}
+
+          {isLive && (
+            <>
+              <div className="flex items-center gap-2 text-mosh-light">
+                <Users className="w-5 h-5 text-mosh-accent" />
+                <span className="font-medium">{listeners}</span>
+                <span className="text-mosh-muted">/ {MAX_LISTENERS}</span>
+              </div>
+              <div className="flex items-center gap-1 px-3 py-1 bg-red-500/20 rounded-full">
+                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                <span className="text-red-400 text-sm font-medium">LIVE</span>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 flex gap-6 min-h-0">
@@ -179,7 +261,7 @@ export default function GoLive() {
               <p className="text-sm text-mosh-light font-medium">Private Sessions Only</p>
               <p className="text-xs text-mosh-muted mt-1">
                 Sessions are invite-only and limited to {MAX_LISTENERS} friends. 
-                Share your invite link to let friends join and listen along with you.
+                Share your invite link to let friends join and listen along with you in real-time.
               </p>
             </div>
           </div>
@@ -190,43 +272,31 @@ export default function GoLive() {
             
             {currentSong ? (
               <div className="flex items-center gap-4">
-                <div className="w-24 h-24 bg-mosh-dark rounded-lg flex items-center justify-center flex-shrink-0">
-                  {currentSong.artwork_url ? (
-                    <img 
-                      src={currentSong.artwork_url} 
-                      alt={currentSong.album}
-                      className="w-full h-full object-cover rounded-lg"
-                    />
-                  ) : (
-                    <Music className="w-10 h-10 text-mosh-muted" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xl font-bold text-mosh-light truncate">
-                    {currentSong.title}
-                  </p>
-                  <p className="text-mosh-text truncate">
-                    {currentSong.artist || 'Unknown Artist'}
-                  </p>
-                  <p className="text-sm text-mosh-muted truncate">
-                    {currentSong.album || 'Unknown Album'}
-                  </p>
+                {currentSong.artwork_url ? (
+                  <img 
+                    src={currentSong.artwork_url} 
+                    alt="Album art"
+                    className="w-20 h-20 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="w-20 h-20 bg-mosh-dark rounded-lg flex items-center justify-center">
+                    <Music className="w-8 h-8 text-mosh-muted" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-mosh-light">{currentSong.title}</h3>
+                  <p className="text-mosh-muted">{currentSong.artist}</p>
                 </div>
                 <button
                   onClick={togglePlay}
-                  className="p-4 bg-mosh-accent hover:bg-mosh-accent-hover rounded-full transition"
+                  className="p-4 bg-mosh-accent hover:bg-mosh-accent-hover text-mosh-black rounded-full transition"
                 >
-                  {isPlaying ? (
-                    <Pause className="w-6 h-6 text-mosh-black" />
-                  ) : (
-                    <Play className="w-6 h-6 text-mosh-black ml-1" />
-                  )}
+                  {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
                 </button>
               </div>
             ) : (
-              <div className="text-center py-8">
-                <Music className="w-12 h-12 text-mosh-muted mx-auto mb-3" />
-                <p className="text-mosh-text">Select a song from your library to start</p>
+              <div className="flex items-center justify-center h-20 text-mosh-muted">
+                <p>Select a song from your library to start</p>
               </div>
             )}
           </div>
@@ -235,7 +305,7 @@ export default function GoLive() {
           {!isLive ? (
             <button
               onClick={handleGoLive}
-              disabled={!currentSong}
+              disabled={!currentSong || !connected}
               className="w-full py-4 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white font-bold text-lg rounded-xl transition flex items-center justify-center gap-3"
             >
               <Radio className="w-6 h-6" />
@@ -286,7 +356,6 @@ export default function GoLive() {
               {/* Social Share */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-mosh-muted">Share via:</span>
-                {/* SMS - Only show on mobile */}
                 {isMobile && (
                   <button
                     onClick={() => shareToSocial('sms')}
@@ -366,7 +435,7 @@ export default function GoLive() {
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.length === 0 ? (
               <div className="text-center text-mosh-muted text-sm py-8">
-                {isLive ? 'Chat with your friends!' : 'Start a session to chat'}
+                {isLive ? 'Chat with your listeners!' : 'Start a session to chat'}
               </div>
             ) : (
               messages.map((msg) => (
