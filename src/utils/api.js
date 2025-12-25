@@ -1,82 +1,91 @@
-const API_BASE = 'https://moshcast-production.up.railway.app/api'
+/**
+ * API Client for Moshcast Backend
+ */
 
-// Get token from localStorage
+const API_URL = 'https://moshcast-production.up.railway.app/api'
+
+// Get auth token from localStorage
 const getToken = () => localStorage.getItem('moshcast_token')
 
-// Generic fetch wrapper with auth
-async function fetchAPI(endpoint, options = {}) {
+// Fetch wrapper with auth
+const fetchWithAuth = async (endpoint, options = {}) => {
   const token = getToken()
   
   const headers = {
     ...options.headers,
   }
-  
-  // Add auth header if token exists
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
-  
-  // Add content-type for JSON bodies
-  if (options.body && !(options.body instanceof FormData)) {
+
+  // Don't set Content-Type for FormData (let browser set it with boundary)
+  if (!(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json'
-    options.body = JSON.stringify(options.body)
   }
-  
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+
+  const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers,
   })
-  
+
   const data = await response.json()
-  
+
   if (!response.ok) {
     throw new Error(data.error || 'Request failed')
   }
-  
+
   return data
 }
 
 // Auth API
 export const auth = {
-  signup: (email, password, username) => 
-    fetchAPI('/auth/signup', {
+  signup: (email, password, username) =>
+    fetchWithAuth('/auth/signup', {
       method: 'POST',
-      body: { email, password, username }
+      body: JSON.stringify({ email, password, username }),
     }),
-    
+
   login: (email, password) =>
-    fetchAPI('/auth/login', {
+    fetchWithAuth('/auth/login', {
       method: 'POST',
-      body: { email, password }
+      body: JSON.stringify({ email, password }),
     }),
-    
-  me: () => fetchAPI('/auth/me'),
+
+  me: () => fetchWithAuth('/auth/me'),
+
+  updatePlan: (plan) =>
+    fetchWithAuth('/auth/plan', {
+      method: 'PUT',
+      body: JSON.stringify({ plan }),
+    }),
 }
 
 // Library API
 export const library = {
   getAll: (params = {}) => {
     const query = new URLSearchParams(params).toString()
-    return fetchAPI(`/library${query ? `?${query}` : ''}`)
+    return fetchWithAuth(`/library${query ? `?${query}` : ''}`)
   },
-  
-  getAlbums: () => fetchAPI('/library/albums'),
-  
-  getArtists: () => fetchAPI('/library/artists'),
-  
-  getRecent: (limit = 20) => fetchAPI(`/library/recent?limit=${limit}`),
-  
-  getSong: (id) => fetchAPI(`/library/${id}`),
-  
-  updateSong: (id, data) => 
-    fetchAPI(`/library/${id}`, {
+
+  getRecent: (limit = 20) =>
+    fetchWithAuth(`/library/recent?limit=${limit}`),
+
+  getAlbums: () => fetchWithAuth('/library/albums'),
+
+  getArtists: () => fetchWithAuth('/library/artists'),
+
+  getSong: (id) => fetchWithAuth(`/library/${id}`),
+
+  updateSong: (id, data) =>
+    fetchWithAuth(`/library/${id}`, {
       method: 'PUT',
-      body: data
+      body: JSON.stringify(data),
     }),
-    
+
   deleteSong: (id) =>
-    fetchAPI(`/library/${id}`, {
-      method: 'DELETE'
+    fetchWithAuth(`/library/${id}`, {
+      method: 'DELETE',
     }),
 }
 
@@ -86,69 +95,99 @@ export const upload = {
     const token = getToken()
     const formData = new FormData()
     formData.append('file', file)
-    
-    // Use XMLHttpRequest for progress tracking
+
+    // Using XMLHttpRequest for progress tracking
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
       
       xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable && onProgress) {
-          onProgress(Math.round((e.loaded / e.total) * 100))
+          const percent = Math.round((e.loaded / e.total) * 100)
+          onProgress(percent)
         }
       })
-      
+
       xhr.addEventListener('load', () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve(JSON.parse(xhr.responseText))
         } else {
-          reject(new Error(JSON.parse(xhr.responseText).error || 'Upload failed'))
+          const error = JSON.parse(xhr.responseText)
+          reject(new Error(error.error || 'Upload failed'))
         }
       })
-      
-      xhr.addEventListener('error', () => reject(new Error('Upload failed')))
-      
-      xhr.open('POST', `${API_BASE}/upload`)
+
+      xhr.addEventListener('error', () => {
+        reject(new Error('Upload failed'))
+      })
+
+      xhr.open('POST', `${API_URL}/upload`)
       xhr.setRequestHeader('Authorization', `Bearer ${token}`)
       xhr.send(formData)
     })
   },
-  
-  getStorage: () => fetchAPI('/upload/storage'),
+
+  batch: async (files) => {
+    const token = getToken()
+    const formData = new FormData()
+    files.forEach((file) => formData.append('files', file))
+
+    const response = await fetch(`${API_URL}/upload/batch`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.error || 'Batch upload failed')
+    }
+    return data
+  },
+
+  getStorage: () => fetchWithAuth('/upload/storage'),
 }
 
 // Playlists API
 export const playlists = {
-  getAll: () => fetchAPI('/playlists'),
-  
-  get: (id) => fetchAPI(`/playlists/${id}`),
-  
-  create: (name, description) =>
-    fetchAPI('/playlists', {
+  getAll: () => fetchWithAuth('/playlists'),
+
+  get: (id) => fetchWithAuth(`/playlists/${id}`),
+
+  getByShareCode: (code) => fetchWithAuth(`/playlists/share/${code}`),
+
+  create: (data) =>
+    fetchWithAuth('/playlists', {
       method: 'POST',
-      body: { name, description }
+      body: JSON.stringify(data),
     }),
-    
+
   update: (id, data) =>
-    fetchAPI(`/playlists/${id}`, {
+    fetchWithAuth(`/playlists/${id}`, {
       method: 'PUT',
-      body: data
+      body: JSON.stringify(data),
     }),
-    
+
   delete: (id) =>
-    fetchAPI(`/playlists/${id}`, {
-      method: 'DELETE'
+    fetchWithAuth(`/playlists/${id}`, {
+      method: 'DELETE',
     }),
-    
+
   addSong: (playlistId, songId) =>
-    fetchAPI(`/playlists/${playlistId}/songs`, {
+    fetchWithAuth(`/playlists/${playlistId}/songs`, {
       method: 'POST',
-      body: { song_id: songId }
+      body: JSON.stringify({ song_id: songId }),
     }),
-    
+
   removeSong: (playlistId, songId) =>
-    fetchAPI(`/playlists/${playlistId}/songs/${songId}`, {
-      method: 'DELETE'
+    fetchWithAuth(`/playlists/${playlistId}/songs/${songId}`, {
+      method: 'DELETE',
+    }),
+
+  reorder: (playlistId, songIds) =>
+    fetchWithAuth(`/playlists/${playlistId}/reorder`, {
+      method: 'PUT',
+      body: JSON.stringify({ song_ids: songIds }),
     }),
 }
-
-export default { auth, library, upload, playlists }
