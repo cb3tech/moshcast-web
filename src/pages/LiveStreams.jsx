@@ -1,220 +1,202 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Radio, Users, Music, UserPlus, Play, Clock } from 'lucide-react';
-import { useFriends } from '../context/FriendsContext';
+import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
+import { Radio, Users, Clock, UserPlus, Loader2, Check, Tv } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import { useFriends } from '../context/FriendsContext'
+import { usePullToRefresh, PullIndicator } from '../hooks/usePullToRefresh'
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://moshcast-production.up.railway.app';
+const API_URL = import.meta.env.VITE_API_URL || 'https://moshcast-production.up.railway.app'
 
 export default function LiveStreams() {
-  const navigate = useNavigate();
-  const { friends = [], sendFriendRequest, pendingSent = [] } = useFriends();
-  const [streams, setStreams] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [requestingUser, setRequestingUser] = useState(null);
+  const { user } = useAuth()
+  const { friends = [], pendingSent = [], sendFriendRequest } = useFriends()
+  const [streams, setStreams] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [sendingRequest, setSendingRequest] = useState(null)
 
-  // Fetch active streams
-  const fetchStreams = async () => {
+  const fetchStreams = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/streams/active`);
-      if (!res.ok) throw new Error('Failed to fetch streams');
-      const data = await res.json();
-      setStreams(data.streams || []);
-      setError(null);
+      const res = await fetch(`${API_URL}/api/streams/active`)
+      if (res.ok) {
+        const data = await res.json()
+        setStreams(data.streams || [])
+      }
     } catch (err) {
-      console.error('Error fetching streams:', err);
-      setError('Failed to load streams');
+      console.error('Failed to fetch streams:', err)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }, [])
+
+  // Pull-to-refresh hook
+  const { isRefreshing, pullProgress, handlers } = usePullToRefresh(fetchStreams)
 
   useEffect(() => {
-    fetchStreams();
-    // Poll every 10 seconds for updates
-    const interval = setInterval(fetchStreams, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    fetchStreams()
+    const interval = setInterval(fetchStreams, 10000)
+    return () => clearInterval(interval)
+  }, [fetchStreams])
 
-  // Check if user is friends with host
-  const isFriendWith = (hostUsername) => {
-    return friends?.some(f => f.username === hostUsername) || false;
-  };
+  const isFriend = (hostUsername) => {
+    return friends.some(f => f.username === hostUsername)
+  }
 
-  // Check if request already sent
-  const requestSentTo = (hostUsername) => {
-    return pendingSent?.some(r => r.username === hostUsername) || false;
-  };
+  const isPending = (hostUsername) => {
+    return pendingSent.some(p => p.username === hostUsername)
+  }
 
-  // Handle join stream
-  const handleJoin = (hostUsername) => {
-    navigate(`/join/${hostUsername}`);
-  };
-
-  // Handle send friend request
   const handleSendRequest = async (hostUsername) => {
-    setRequestingUser(hostUsername);
+    setSendingRequest(hostUsername)
     try {
-      await sendFriendRequest(hostUsername);
-    } catch (err) {
-      console.error('Error sending request:', err);
+      await sendFriendRequest(hostUsername)
     } finally {
-      setRequestingUser(null);
+      setSendingRequest(null)
     }
-  };
+  }
 
-  // Format time elapsed
   const formatElapsed = (startedAt) => {
-    if (!startedAt) return 'Live';
-    const elapsed = Math.floor((Date.now() - startedAt) / 1000 / 60);
-    if (elapsed < 1) return 'Just started';
-    if (elapsed < 60) return `${elapsed}m`;
-    return `${Math.floor(elapsed / 60)}h ${elapsed % 60}m`;
-  };
+    const seconds = Math.floor((Date.now() - new Date(startedAt)) / 1000)
+    const mins = Math.floor(seconds / 60)
+    const hrs = Math.floor(mins / 60)
+    if (hrs > 0) return `${hrs}h ${mins % 60}m`
+    return `${mins}m`
+  }
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <Radio className="w-8 h-8 text-green-500" />
-          <h1 className="text-2xl font-bold text-white">Live Streams</h1>
-        </div>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-green-500"></div>
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 text-mosh-accent animate-spin" />
       </div>
-    );
+    )
   }
 
   return (
-    <div className="p-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <Radio className="w-8 h-8 text-green-500" />
+    <div className="p-4 md:p-6 max-w-6xl mx-auto" {...handlers}>
+      {/* Pull-to-refresh indicator */}
+      <PullIndicator progress={pullProgress} isRefreshing={isRefreshing} />
+      
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Live Streams</h1>
-          <p className="text-gray-400 text-sm">
-            {streams.length > 0 
-              ? `${streams.length} active stream${streams.length !== 1 ? 's' : ''}`
-              : 'No active streams right now'}
-          </p>
+          <h1 className="text-2xl md:text-3xl font-bold text-mosh-light">Live Streams</h1>
+          <p className="text-mosh-muted mt-1 text-sm md:text-base">Discover what your friends are playing</p>
         </div>
+        <Link
+          to="/live"
+          className="flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white px-4 py-3 md:py-2 rounded-lg transition-colors min-h-[44px]"
+        >
+          <Radio className="w-4 h-4" />
+          <span>Start Streaming</span>
+        </Link>
       </div>
 
-      {error && (
-        <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 mb-6">
-          <p className="text-red-400">{error}</p>
-        </div>
-      )}
+      {/* Info box */}
+      <div className="bg-mosh-dark/50 border border-mosh-border rounded-lg p-4 mb-6">
+        <p className="text-mosh-muted text-sm">
+          <span className="text-mosh-light font-medium">Private sharing:</span> You can only join streams from friends. 
+          Send a friend request to connect with other listeners.
+        </p>
+      </div>
 
-      {/* Streams Grid */}
       {streams.length === 0 ? (
-        <div className="bg-zinc-800/50 rounded-xl p-12 text-center">
-          <Radio className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-white mb-2">No Active Streams</h2>
-          <p className="text-gray-400 mb-6">Be the first to start streaming!</p>
-          <button
-            onClick={() => navigate('/live')}
-            className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-full font-medium transition-colors"
+        <div className="text-center py-12 md:py-16">
+          <Tv className="w-12 h-12 md:w-16 md:h-16 text-mosh-muted mx-auto mb-4" />
+          <h2 className="text-lg md:text-xl font-medium text-mosh-light mb-2">No live streams right now</h2>
+          <p className="text-mosh-muted mb-6 text-sm md:text-base">Be the first to go live!</p>
+          <Link
+            to="/live"
+            className="inline-flex items-center gap-2 bg-mosh-accent hover:bg-mosh-accent/80 text-black px-6 py-3 rounded-lg transition-colors min-h-[44px]"
           >
+            <Radio className="w-4 h-4" />
             Start Streaming
-          </button>
+          </Link>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {streams.map((stream) => {
-            const isFriend = isFriendWith(stream.host);
-            const requestSent = requestSentTo(stream.host);
-            const isRequesting = requestingUser === stream.host;
+            const canJoin = isFriend(stream.hostUsername)
+            const pending = isPending(stream.hostUsername)
+            const isMe = user?.username === stream.hostUsername
 
             return (
               <div
-                key={stream.host}
-                className="bg-zinc-800/50 rounded-xl p-5 hover:bg-zinc-800 transition-colors"
+                key={stream.hostUsername}
+                className="bg-mosh-dark border border-mosh-border rounded-lg p-4 hover:border-mosh-accent/50 transition-colors"
               >
-                {/* Host Info */}
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-700 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">
-                      {stream.host.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-white font-semibold truncate">{stream.host}</h3>
-                    <div className="flex items-center gap-3 text-sm text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <Users className="w-4 h-4" />
-                        {stream.listenerCount || 0}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        {formatElapsed(stream.startedAt)}
-                      </span>
-                    </div>
-                  </div>
-                  {/* Live indicator */}
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-red-500/20 rounded-full">
-                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                    <span className="text-red-400 text-xs font-medium">LIVE</span>
-                  </div>
+                {/* Live indicator */}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="flex items-center gap-1.5 text-red-400 text-sm font-medium">
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                    LIVE
+                  </span>
+                  <span className="text-mosh-muted text-sm flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {formatElapsed(stream.startedAt)}
+                  </span>
                 </div>
 
-                {/* Now Playing */}
-                {stream.song && (
-                  <div className="flex items-center gap-3 p-3 bg-zinc-900/50 rounded-lg mb-4">
-                    <div className="w-10 h-10 bg-zinc-700 rounded flex items-center justify-center">
-                      <Music className="w-5 h-5 text-gray-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-medium truncate">{stream.song.title}</p>
-                      <p className="text-gray-400 text-xs truncate">{stream.song.artist}</p>
-                    </div>
-                  </div>
+                {/* Host */}
+                <h3 className="text-lg font-semibold text-mosh-light mb-1">
+                  @{stream.hostUsername}
+                  {isMe && <span className="text-mosh-accent text-sm ml-2">(You)</span>}
+                </h3>
+
+                {/* Current song */}
+                {stream.currentSong ? (
+                  <p className="text-mosh-muted text-sm mb-3 truncate">
+                    🎵 {stream.currentSong.title} - {stream.currentSong.artist}
+                  </p>
+                ) : (
+                  <p className="text-mosh-muted text-sm mb-3 italic">No song playing</p>
                 )}
 
-                {/* Action Button */}
-                {isFriend ? (
-                  <button
-                    onClick={() => handleJoin(stream.host)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                {/* Listeners */}
+                <div className="flex items-center gap-1 text-mosh-muted text-sm mb-4">
+                  <Users className="w-4 h-4" />
+                  <span>{stream.listenerCount} listening</span>
+                </div>
+
+                {/* Action button - larger touch target on mobile */}
+                {isMe ? (
+                  <Link
+                    to="/live"
+                    className="w-full flex items-center justify-center gap-2 bg-mosh-accent text-black py-3 rounded-lg font-medium hover:bg-mosh-accent/80 transition-colors min-h-[44px]"
                   >
-                    <Play className="w-4 h-4" />
+                    Manage Stream
+                  </Link>
+                ) : canJoin ? (
+                  <Link
+                    to={`/join/${stream.hostUsername}`}
+                    className="w-full flex items-center justify-center gap-2 bg-green-500 text-white py-3 rounded-lg font-medium hover:bg-green-600 transition-colors min-h-[44px]"
+                  >
                     Join Stream
-                  </button>
-                ) : requestSent ? (
+                  </Link>
+                ) : pending ? (
                   <button
                     disabled
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-700 text-gray-400 rounded-lg font-medium cursor-not-allowed"
+                    className="w-full flex items-center justify-center gap-2 bg-mosh-border text-mosh-muted py-3 rounded-lg font-medium cursor-not-allowed min-h-[44px]"
                   >
-                    <Clock className="w-4 h-4" />
+                    <Check className="w-4 h-4" />
                     Request Pending
                   </button>
                 ) : (
                   <button
-                    onClick={() => handleSendRequest(stream.host)}
-                    disabled={isRequesting}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white rounded-lg font-medium transition-colors"
+                    onClick={() => handleSendRequest(stream.hostUsername)}
+                    disabled={sendingRequest === stream.hostUsername}
+                    className="w-full flex items-center justify-center gap-2 bg-blue-500 text-white py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 min-h-[44px]"
                   >
-                    <UserPlus className="w-4 h-4" />
-                    {isRequesting ? 'Sending...' : 'Send Friend Request to Join'}
+                    {sendingRequest === stream.hostUsername ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <UserPlus className="w-4 h-4" />
+                    )}
+                    Send Friend Request
                   </button>
                 )}
               </div>
-            );
+            )
           })}
         </div>
       )}
-
-      {/* Info Box */}
-      <div className="mt-8 bg-zinc-800/30 rounded-xl p-5 border border-zinc-700/50">
-        <h3 className="text-white font-medium mb-2">How it works</h3>
-        <ul className="text-gray-400 text-sm space-y-1">
-          <li>• Only friends can join each other's streams</li>
-          <li>• Send a friend request to streamers you want to listen to</li>
-          <li>• Once accepted, you can join their current and future streams</li>
-          <li>• Start your own stream and invite friends to listen along</li>
-        </ul>
-      </div>
     </div>
-  );
+  )
 }
