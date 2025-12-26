@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Library, Upload, Search, Radio, ListMusic, Heart, Settings, Newspaper, Users } from 'lucide-react'
+import { Home, Library, Upload, Search, Radio, ListMusic, Heart, Settings, Newspaper, Users, Tv } from 'lucide-react'
 import { useFriends } from '../context/FriendsContext'
 
 export default function Sidebar() {
@@ -53,6 +53,11 @@ export default function Sidebar() {
           <NavLink to="/" className={linkClass} end>
             <Home className="w-5 h-5" />
             <span>Home</span>
+          </NavLink>
+
+          <NavLink to="/streams" className={linkClass}>
+            <Tv className="w-5 h-5" />
+            <span>Live Streams</span>
           </NavLink>
           
           <NavLink to="/friends" className={linkClass}>
