@@ -237,7 +237,7 @@ export default function Library() {
   const someSelected = selectedIds.size > 0 && selectedIds.size < filteredSongs.length
 
   return (
-    <div className="p-6">
+    <div className="p-6 pt-52">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-mosh-light">Your Library</h1>
