@@ -24,7 +24,7 @@ export default function Sidebar() {
           <h1 className="text-2xl font-bold text-mosh-light">Moshcast</h1>
           <span className="text-sm font-semibold text-mosh-accent -rotate-12">BETA</span>
         </div>
-        <p className="text-xs text-mosh-muted mt-1">Your music. Your library. Everywhere.</p>
+        <p className="text-xs text-mosh-muted mt-1">Your music. Your library. Anywhere.</p>
       </div>
 
       {/* Go Live - Primary CTA */}
