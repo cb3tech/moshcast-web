@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import api from '../utils/api'
+import { api } from '../utils/api'
 
 export default function Login() {
   const [email, setEmail] = useState('')
