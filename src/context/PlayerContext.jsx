@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react'
-import { Howl } from 'howler'
 
 const PlayerContext = createContext()
 
@@ -12,41 +11,70 @@ export function PlayerProvider({ children }) {
   const [queue, setQueue] = useState([])
   const [queueIndex, setQueueIndex] = useState(0)
   const [shuffle, setShuffle] = useState(false)
-  const [autoplay, setAutoplay] = useState(true) // Autoplay next song by default
+  const [autoplay, setAutoplay] = useState(true)
   
-  const howlRef = useRef(null)
+  // Use native Audio element instead of Howler for CORS/visualizer support
+  const audioRef = useRef(null)
   const progressInterval = useRef(null)
   
-  // Audio visualization refs (exposed for Player component)
+  // Audio visualization refs
   const audioContextRef = useRef(null)
   const analyserRef = useRef(null)
   const sourceNodeRef = useRef(null)
   
-  // Refs to track current values for callbacks (avoid stale closures)
+  // Refs to track current values for callbacks
   const queueRef = useRef(queue)
   const queueIndexRef = useRef(queueIndex)
   const autoplayRef = useRef(autoplay)
   const shuffleRef = useRef(shuffle)
+  const volumeRef = useRef(volume)
   
   // Keep refs in sync
   useEffect(() => { queueRef.current = queue }, [queue])
   useEffect(() => { queueIndexRef.current = queueIndex }, [queueIndex])
   useEffect(() => { autoplayRef.current = autoplay }, [autoplay])
   useEffect(() => { shuffleRef.current = shuffle }, [shuffle])
+  useEffect(() => { volumeRef.current = volume }, [volume])
 
-  // Ref for playSongInternal to avoid stale closures
   const playSongInternalRef = useRef(null)
   const handleSongEndRef = useRef(null)
 
-  // Cleanup on unmount
+  // Create audio element once on mount
   useEffect(() => {
+    const audio = new Audio()
+    audio.crossOrigin = 'anonymous'  // Set BEFORE any src is loaded - required for Web Audio API
+    audio.preload = 'auto'
+    audioRef.current = audio
+    
+    // Event listeners
+    audio.addEventListener('loadedmetadata', () => {
+      console.log('🎵 Audio loadedmetadata - duration:', audio.duration)
+      setDuration(audio.duration)
+    })
+    
+    audio.addEventListener('play', () => {
+      console.log('🎵 Audio play event')
+      setIsPlaying(true)
+    })
+    
+    audio.addEventListener('pause', () => {
+      setIsPlaying(false)
+    })
+    
+    audio.addEventListener('ended', () => {
+      console.log('🎵 Audio ended')
+      if (handleSongEndRef.current) {
+        handleSongEndRef.current()
+      }
+    })
+    
+    audio.addEventListener('error', (e) => {
+      console.error('🎵 Audio error:', e.target.error)
+    })
+
     return () => {
-      if (howlRef.current) {
-        howlRef.current.unload()
-      }
-      if (progressInterval.current) {
-        clearInterval(progressInterval.current)
-      }
+      audio.pause()
+      audio.src = ''
       if (audioContextRef.current) {
         audioContextRef.current.close()
       }
@@ -57,10 +85,10 @@ export function PlayerProvider({ children }) {
   useEffect(() => {
     if (isPlaying) {
       progressInterval.current = setInterval(() => {
-        if (howlRef.current) {
-          setProgress(howlRef.current.seek() || 0)
+        if (audioRef.current) {
+          setProgress(audioRef.current.currentTime || 0)
         }
-      }, 1000)
+      }, 250)
     } else {
       if (progressInterval.current) {
         clearInterval(progressInterval.current)
@@ -74,36 +102,63 @@ export function PlayerProvider({ children }) {
     }
   }, [isPlaying])
 
-  // Play next song (used by handleSongEnd and nextSong button)
+  // Setup audio analyser - called once on first play
+  const setupAudioAnalyser = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio || sourceNodeRef.current) return // Already setup
+    
+    try {
+      // Create AudioContext
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)()
+      }
+      
+      // Create analyser
+      if (!analyserRef.current) {
+        analyserRef.current = audioContextRef.current.createAnalyser()
+        analyserRef.current.fftSize = 256
+        analyserRef.current.smoothingTimeConstant = 0.8
+      }
+      
+      // Connect audio element to analyser
+      // createMediaElementSource can only be called ONCE per audio element
+      const source = audioContextRef.current.createMediaElementSource(audio)
+      source.connect(analyserRef.current)
+      analyserRef.current.connect(audioContextRef.current.destination)
+      sourceNodeRef.current = source
+      
+      console.log('🎨 Audio analyser connected successfully!')
+    } catch (e) {
+      console.warn('🎨 Analyser setup failed:', e.message)
+    }
+  }, [])
+
+  // Play next song
   const playNextSong = useCallback(() => {
     const currentQueue = queueRef.current
     const currentIndex = queueIndexRef.current
     const isShuffle = shuffleRef.current
     
-    console.log('🎵 playNextSong:', { currentIndex, queueLength: currentQueue.length, isShuffle })
+    console.log('🎵 playNextSong:', { currentIndex, queueLength: currentQueue.length })
     
     if (currentQueue.length === 0) return false
 
     let nextIndex
     if (isShuffle) {
-      // Random song (not current)
       const available = currentQueue.filter((_, i) => i !== currentIndex)
       if (available.length === 0) return false
       const randomSong = available[Math.floor(Math.random() * available.length)]
       nextIndex = currentQueue.indexOf(randomSong)
     } else {
       nextIndex = currentIndex + 1
-      console.log('🎵 Calculated nextIndex:', nextIndex)
-      // Stop at end of queue (no wrap around)
       if (nextIndex >= currentQueue.length) {
-        console.log('🎵 End of queue reached')
+        console.log('🎵 End of queue')
         return false
       }
     }
 
-    // Play the next song via ref (avoids stale closure)
     const nextSongToPlay = currentQueue[nextIndex]
-    console.log('🎵 Playing next song:', nextSongToPlay?.title, 'at index', nextIndex)
+    console.log('🎵 Playing next:', nextSongToPlay?.title)
     if (nextSongToPlay && playSongInternalRef.current) {
       playSongInternalRef.current(nextSongToPlay, currentQueue, nextIndex)
       return true
@@ -114,198 +169,104 @@ export function PlayerProvider({ children }) {
   const handleSongEnd = useCallback(() => {
     console.log('🎵 Song ended, autoplay:', autoplayRef.current)
     if (autoplayRef.current) {
-      // Autoplay ON: play next song if available
       const played = playNextSong()
       if (!played) {
-        // End of queue - stop
         setIsPlaying(false)
       }
     } else {
-      // Autoplay OFF: stop after current song
       setIsPlaying(false)
     }
   }, [playNextSong])
   
-  // Keep handleSongEnd ref updated
   handleSongEndRef.current = handleSongEnd
 
-  // Setup audio analyser for visualization
-  const setupAudioAnalyser = useCallback((audioNode) => {
-    if (!audioNode) return
-    
-    try {
-      // Create AudioContext if needed
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)()
-      }
-      
-      // Resume context if suspended (browser autoplay policy)
-      if (audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume()
-      }
-      
-      // Create analyser if needed
-      if (!analyserRef.current) {
-        analyserRef.current = audioContextRef.current.createAnalyser()
-        analyserRef.current.fftSize = 256
-        analyserRef.current.smoothingTimeConstant = 0.8
-      }
-      
-      // Only create source node once per audio element
-      // Check if this audio element already has a source
-      if (sourceNodeRef.current) {
-        // Disconnect old source
-        try {
-          sourceNodeRef.current.disconnect()
-        } catch (e) {
-          // Ignore disconnect errors
-        }
-        sourceNodeRef.current = null
-      }
-      
-      // Create new source from audio element
-      const source = audioContextRef.current.createMediaElementSource(audioNode)
-      source.connect(analyserRef.current)
-      analyserRef.current.connect(audioContextRef.current.destination)
-      sourceNodeRef.current = source
-      
-      console.log('🎨 Audio analyser connected successfully')
-    } catch (e) {
-      console.warn('🎨 Audio analyser setup failed:', e.message)
-      // Don't break playback if visualizer fails
-    }
-  }, [])
-
-  // Internal play function (doesn't depend on state)
-  const playSongInternal = (song, songQueue, index) => {
+  // Internal play function
+  const playSongInternal = useCallback((song, songQueue, index) => {
     console.log('🎵 playSongInternal:', { song: song?.title, index, queueLength: songQueue.length })
     
     if (!song?.file_url) {
-      console.error('Cannot play song: missing file_url', song)
+      console.error('Cannot play song: missing file_url')
       return
     }
 
-    // Stop current song
-    if (howlRef.current) {
-      howlRef.current.unload()
-    }
-    
-    // Reset source node ref for new song
-    sourceNodeRef.current = null
+    const audio = audioRef.current
+    if (!audio) return
 
-    // Update refs IMMEDIATELY (don't wait for useEffect)
+    // Update refs IMMEDIATELY
     queueRef.current = songQueue
     queueIndexRef.current = index
     
-    // Also update React state
+    // Update state
     setQueue(songQueue)
     setQueueIndex(index)
     setCurrentSong(song)
-    
-    console.log('🎵 Updated queueIndexRef to:', queueIndexRef.current)
     setProgress(0)
 
-    // Create new Howl with CORS support
-    howlRef.current = new Howl({
-      src: [song.file_url],
-      html5: true,
-      volume: volume,
-      format: ['mp3', 'm4a', 'aac', 'flac', 'wav', 'ogg'],
-      onload: () => {
-        console.log('🎵 Howl onload - duration:', howlRef.current.duration())
-        setDuration(howlRef.current.duration())
-        
-        // Setup audio analyser after load
-        const audioNode = howlRef.current._sounds?.[0]?._node
-        if (audioNode) {
-          setupAudioAnalyser(audioNode)
-        }
-      },
-      onplay: () => {
-        console.log('🎵 Howl onplay')
-        setIsPlaying(true)
-        
-        // Resume audio context if needed
-        if (audioContextRef.current?.state === 'suspended') {
-          audioContextRef.current.resume()
-        }
-      },
-      onpause: () => {
-        setIsPlaying(false)
-      },
-      onend: () => {
-        // Use ref to always get latest handleSongEnd
-        if (handleSongEndRef.current) {
-          handleSongEndRef.current()
-        }
-      },
-      onloaderror: (id, error) => {
-        console.error('🎵 Howl load error:', error)
-      },
-      onplayerror: (id, error) => {
-        console.error('🎵 Howl play error:', error)
-        howlRef.current.once('unlock', () => {
-          howlRef.current.play()
-        })
-      }
+    // Setup analyser on first play (only once per audio element)
+    if (!sourceNodeRef.current) {
+      setupAudioAnalyser()
+    }
+    
+    // Resume audio context if suspended (browser autoplay policy)
+    if (audioContextRef.current?.state === 'suspended') {
+      audioContextRef.current.resume()
+    }
+
+    // Load and play new song
+    audio.src = song.file_url
+    audio.volume = volumeRef.current
+    audio.play().catch(e => {
+      console.error('🎵 Play failed:', e)
     })
-
-    // Set crossOrigin on the underlying audio element for CORS
-    // This must be done before play() loads the audio
-    setTimeout(() => {
-      const audioNode = howlRef.current?._sounds?.[0]?._node
-      if (audioNode) {
-        audioNode.crossOrigin = 'anonymous'
-        console.log('🎨 Set crossOrigin on audio element')
-      }
-    }, 0)
-
-    howlRef.current.play()
-  }
+  }, [setupAudioAnalyser])
   
-  // Keep playSongInternal ref updated
   playSongInternalRef.current = playSongInternal
 
-  const playSong = (song, newQueue = [], index = 0) => {
+  const playSong = useCallback((song, newQueue = [], index = 0) => {
     console.log('🎵 playSong called:', { song: song?.title, queueLength: newQueue.length, index })
-    playSongInternal(song, newQueue.length > 0 ? newQueue : queue, index)
-  }
+    playSongInternal(song, newQueue.length > 0 ? newQueue : queueRef.current, index)
+  }, [playSongInternal])
 
-  const togglePlay = () => {
-    if (!howlRef.current) {
-      // If no song loaded but we have a current song, reload it
-      if (currentSong?.file_url) {
-        playSong(currentSong, queue, queueIndex)
-      }
+  const togglePlay = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    if (!audio.src && currentSong?.file_url) {
+      playSong(currentSong, queueRef.current, queueIndexRef.current)
       return
     }
 
     if (isPlaying) {
-      howlRef.current.pause()
+      audio.pause()
     } else {
-      howlRef.current.play()
+      // Resume context if needed
+      if (audioContextRef.current?.state === 'suspended') {
+        audioContextRef.current.resume()
+      }
+      audio.play().catch(e => console.error('Play failed:', e))
     }
-  }
+  }, [isPlaying, currentSong, playSong])
 
-  const seek = (time) => {
-    if (howlRef.current) {
-      howlRef.current.seek(time)
+  const seek = useCallback((time) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = time
       setProgress(time)
     }
-  }
+  }, [])
 
-  const setVolume = (vol) => {
+  const setVolume = useCallback((vol) => {
     setVolumeState(vol)
-    if (howlRef.current) {
-      howlRef.current.volume(vol)
+    volumeRef.current = vol
+    if (audioRef.current) {
+      audioRef.current.volume = vol
     }
-  }
+  }, [])
 
-  const nextSong = () => {
+  const nextSong = useCallback(() => {
     playNextSong()
-  }
+  }, [playNextSong])
 
-  const prevSong = () => {
+  const prevSong = useCallback(() => {
     const currentQueue = queueRef.current
     const currentIndex = queueIndexRef.current
     
@@ -325,7 +286,6 @@ export function PlayerProvider({ children }) {
       prevIndex = currentQueue.indexOf(randomSong)
     } else {
       prevIndex = currentIndex - 1
-      // Stop at beginning (no wrap around)
       if (prevIndex < 0) {
         seek(0)
         return
@@ -335,15 +295,15 @@ export function PlayerProvider({ children }) {
     if (playSongInternalRef.current) {
       playSongInternalRef.current(currentQueue[prevIndex], currentQueue, prevIndex)
     }
-  }
+  }, [progress, seek])
 
-  const toggleShuffle = () => {
-    setShuffle(!shuffle)
-  }
+  const toggleShuffle = useCallback(() => {
+    setShuffle(s => !s)
+  }, [])
 
-  const toggleAutoplay = () => {
-    setAutoplay(!autoplay)
-  }
+  const toggleAutoplay = useCallback(() => {
+    setAutoplay(a => !a)
+  }, [])
 
   return (
     <PlayerContext.Provider value={{
@@ -356,9 +316,9 @@ export function PlayerProvider({ children }) {
       queueIndex,
       shuffle,
       autoplay,
-      howlRef,
-      analyserRef,  // Exposed for visualizer
-      audioContextRef,  // Exposed for visualizer
+      audioRef,        // Expose for components that need it
+      analyserRef,     // For visualizer
+      audioContextRef, // For visualizer
       playSong,
       togglePlay,
       seek,
