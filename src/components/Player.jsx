@@ -13,7 +13,7 @@ export default function Player() {
     currentSong, isPlaying, progress, duration, volume,
     togglePlay, seek, setVolume, nextSong, prevSong,
     shuffle, toggleShuffle, autoplay, toggleAutoplay,
-    queue, queueIndex, howlRef
+    queue, queueIndex, howlRef, analyserRef, audioContextRef
   } = usePlayer()
 
   const [showVolume, setShowVolume] = useState(false)
@@ -74,7 +74,7 @@ export default function Player() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [togglePlay, seek, setVolume, nextSong, prevSong, progress, duration, volume, toggleShuffle, toggleAutoplay])
 
-  // Fake visualizer - animated bars without AudioContext
+  // Real audio visualizer using Web Audio API analyser
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -84,34 +84,76 @@ export default function Player() {
     const barWidth = (canvas.width / barCount) * 0.8
     const gap = (canvas.width / barCount) * 0.2
     
-    // Store bar heights for smooth animation
+    // Store bar heights for smooth animation (used for both real and fake)
     const bars = Array(barCount).fill(0)
     const targetBars = Array(barCount).fill(0)
+    
+    // Check if we have a real analyser
+    const analyser = analyserRef?.current
+    const hasRealAnalyser = analyser && audioContextRef?.current
+    
+    // Create data array for frequency data
+    const dataArray = hasRealAnalyser ? new Uint8Array(analyser.frequencyBinCount) : null
 
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-      for (let i = 0; i < barCount; i++) {
-        // Generate new targets when playing
-        if (isPlaying) {
-          // Create wave-like pattern with some randomness
-          const wave = Math.sin((Date.now() / 200) + (i * 0.3)) * 0.3 + 0.5
-          const random = Math.random() * 0.4
-          targetBars[i] = (wave + random) * canvas.height * 0.7
-        } else {
-          // Fade to small bars when paused
-          targetBars[i] = 2
+      if (hasRealAnalyser && isPlaying) {
+        // REAL VISUALIZER - Use actual frequency data
+        analyser.getByteFrequencyData(dataArray)
+        
+        // Map frequency data to our bar count
+        const step = Math.floor(dataArray.length / barCount)
+        
+        for (let i = 0; i < barCount; i++) {
+          // Average a range of frequencies for each bar
+          let sum = 0
+          for (let j = 0; j < step; j++) {
+            sum += dataArray[i * step + j]
+          }
+          const avg = sum / step
+          
+          // Scale to canvas height (0-255 -> 0-canvas.height)
+          targetBars[i] = (avg / 255) * canvas.height * 0.85
+          
+          // Smooth interpolation
+          bars[i] += (targetBars[i] - bars[i]) * 0.3
         }
+      } else {
+        // FAKE VISUALIZER - Animated bars when no analyser or paused
+        for (let i = 0; i < barCount; i++) {
+          if (isPlaying) {
+            // Create wave-like pattern with some randomness
+            const wave = Math.sin((Date.now() / 200) + (i * 0.3)) * 0.3 + 0.5
+            const random = Math.random() * 0.4
+            targetBars[i] = (wave + random) * canvas.height * 0.7
+          } else {
+            // Fade to small bars when paused
+            targetBars[i] = 2
+          }
 
-        // Smooth interpolation
-        bars[i] += (targetBars[i] - bars[i]) * 0.15
+          // Smooth interpolation
+          bars[i] += (targetBars[i] - bars[i]) * 0.15
+        }
+      }
 
+      // Draw bars
+      for (let i = 0; i < barCount; i++) {
         const x = i * (barWidth + gap)
         const barHeight = Math.max(2, bars[i])
 
-        // Gradient effect
-        const intensity = barHeight / (canvas.height * 0.7)
-        ctx.fillStyle = `rgba(29, 185, 84, ${0.3 + intensity * 0.5})`
+        // Gradient effect based on height
+        const intensity = barHeight / (canvas.height * 0.85)
+        
+        // Use slightly different colors for real vs fake
+        if (hasRealAnalyser && isPlaying) {
+          // Real: More vibrant green
+          ctx.fillStyle = `rgba(30, 215, 96, ${0.4 + intensity * 0.6})`
+        } else {
+          // Fake: Dimmer green
+          ctx.fillStyle = `rgba(29, 185, 84, ${0.3 + intensity * 0.5})`
+        }
+        
         ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight)
       }
 
@@ -125,7 +167,7 @@ export default function Player() {
         cancelAnimationFrame(animationRef.current)
       }
     }
-  }, [isPlaying])
+  }, [isPlaying, analyserRef, audioContextRef])
 
   if (!currentSong) {
     return null // Don't show player if no song
@@ -138,7 +180,7 @@ export default function Player() {
       {/* Floating Player Container */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-4xl">
         <div className="bg-mosh-darker/95 backdrop-blur-xl border border-mosh-border rounded-2xl shadow-2xl shadow-black/50 overflow-hidden">
-          {/* Fake Waveform Visualizer */}
+          {/* Audio Waveform Visualizer */}
           <canvas 
             ref={canvasRef}
             width={800}
