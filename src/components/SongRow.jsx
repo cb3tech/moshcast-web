@@ -1,12 +1,22 @@
 import { useState, useRef, useEffect } from 'react'
-import { Play, Pause, MoreHorizontal, Music, Trash2, Edit2, ListPlus, Plus, X, Heart } from 'lucide-react'
+import { Play, Pause, MoreHorizontal, Music, Trash2, Edit2, ListPlus, Plus, X, Heart, CheckSquare, Square } from 'lucide-react'
 import { usePlayer } from '../context/PlayerContext'
 import { useAuth } from '../context/AuthContext'
 import { useFavorites } from '../context/FavoritesContext'
 import { formatDuration } from '../utils/format'
 import { library as libraryAPI, playlists as playlistsAPI } from '../utils/api'
 
-export default function SongRow({ song, index, queue = [], showIndex = true, onDelete, onEdit }) {
+export default function SongRow({ 
+  song, 
+  index, 
+  queue = [], 
+  showIndex = true, 
+  onDelete, 
+  onEdit,
+  isSelected = false,
+  onToggleSelect,
+  showCheckbox = false
+}) {
   const { currentSong, isPlaying, playSong, togglePlay } = usePlayer()
   const { token } = useAuth()
   const { isFavorite, addFavorite, removeFavorite } = useFavorites()
@@ -44,6 +54,13 @@ export default function SongRow({ song, index, queue = [], showIndex = true, onD
       togglePlay()
     } else {
       playSong(song, queue, index)
+    }
+  }
+
+  const handleCheckboxClick = (e) => {
+    e.stopPropagation()
+    if (onToggleSelect) {
+      onToggleSelect()
     }
   }
 
@@ -124,9 +141,23 @@ export default function SongRow({ song, index, queue = [], showIndex = true, onD
       <div 
         className={`group flex items-center px-4 py-2 rounded-md hover:bg-mosh-hover transition cursor-pointer ${
           isCurrentSong ? 'bg-mosh-hover' : ''
-        } ${deleting ? 'opacity-50 pointer-events-none' : ''}`}
+        } ${isSelected ? 'bg-mosh-accent/10' : ''} ${deleting ? 'opacity-50 pointer-events-none' : ''}`}
         onClick={handleClick}
       >
+        {/* Checkbox */}
+        {showCheckbox && (
+          <button
+            onClick={handleCheckboxClick}
+            className="w-8 flex justify-center text-mosh-muted hover:text-mosh-light transition"
+          >
+            {isSelected ? (
+              <CheckSquare className="w-5 h-5 text-mosh-accent" />
+            ) : (
+              <Square className="w-5 h-5 opacity-0 group-hover:opacity-100 transition" />
+            )}
+          </button>
+        )}
+
         {/* Index / Play Button */}
         <div className="w-8 flex justify-center">
           {showIndex && !isCurrentSong && (
