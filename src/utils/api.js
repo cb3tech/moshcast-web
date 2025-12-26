@@ -106,6 +106,27 @@ export const library = {
     fetchWithAuth(`/library/${id}`, {
       method: 'DELETE',
     }),
+
+  // Bulk delete songs
+  bulkDelete: (songIds) =>
+    fetchWithAuth('/library/bulk', {
+      method: 'DELETE',
+      body: JSON.stringify({ songIds }),
+    }),
+
+  // Bulk update metadata
+  bulkUpdate: (songIds, updates) =>
+    fetchWithAuth('/library/bulk', {
+      method: 'PUT',
+      body: JSON.stringify({ songIds, updates }),
+    }),
+
+  // Bulk fetch artwork from iTunes
+  bulkFetchArtwork: (songIds) =>
+    fetchWithAuth('/library/bulk/fetch-artwork', {
+      method: 'POST',
+      body: JSON.stringify({ songIds }),
+    }),
 }
 
 // Upload API
@@ -208,5 +229,12 @@ export const playlists = {
     fetchWithAuth(`/playlists/${playlistId}/reorder`, {
       method: 'PUT',
       body: JSON.stringify({ song_ids: songIds }),
+    }),
+
+  // Bulk add songs to playlist
+  addSongsBulk: (playlistId, songIds) =>
+    fetchWithAuth(`/playlists/${playlistId}/songs/bulk`, {
+      method: 'POST',
+      body: JSON.stringify({ songIds }),
     }),
 }
