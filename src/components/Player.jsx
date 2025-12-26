@@ -13,7 +13,7 @@ export default function Player() {
     currentSong, isPlaying, progress, duration, volume,
     togglePlay, seek, setVolume, nextSong, prevSong,
     shuffle, toggleShuffle, autoplay, toggleAutoplay,
-    queue, queueIndex, howlRef, analyserRef, audioContextRef
+    queue, queueIndex, analyserRef, audioContextRef
   } = usePlayer()
 
   const [showVolume, setShowVolume] = useState(false)
