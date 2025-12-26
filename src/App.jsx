@@ -4,6 +4,7 @@ import { FavoritesProvider } from './context/FavoritesContext'
 import { FriendsProvider } from './context/FriendsContext'
 import Sidebar from './components/Sidebar'
 import Player from './components/Player'
+import MobileNav from './components/MobileNav'
 import AccountMenu from './components/AccountMenu'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
@@ -12,10 +13,10 @@ import Library from './pages/Library'
 import Upload from './pages/Upload'
 import GoLive from './pages/GoLive'
 import JoinStream from './pages/JoinStream'
+import LiveStreams from './pages/LiveStreams'
 import Playlists from './pages/Playlists'
 import Favorites from './pages/Favorites'
 import Friends from './pages/Friends'
-import LiveStreams from './pages/LiveStreams'
 import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
 import Settings from './pages/Settings'
@@ -44,18 +45,34 @@ function MainLayout({ children }) {
     <FavoritesProvider>
       <FriendsProvider>
         <div className="flex h-screen bg-mosh-darker overflow-hidden">
-          <Sidebar />
+          {/* Sidebar - hidden on mobile */}
+          <div className="hidden md:flex">
+            <Sidebar />
+          </div>
+          
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Header */}
-            <header className="h-16 bg-mosh-darker flex items-center justify-end px-6 flex-shrink-0">
+            <header className="h-14 md:h-16 bg-mosh-darker flex items-center justify-between px-4 md:px-6 flex-shrink-0">
+              {/* Mobile logo */}
+              <div className="flex items-center gap-2 md:hidden">
+                <span className="text-xl">🤘</span>
+                <h1 className="text-lg font-bold text-mosh-light">Moshcast</h1>
+              </div>
+              <div className="hidden md:block" /> {/* Spacer for desktop */}
               <AccountMenu />
             </header>
-            {/* Main Content */}
-            <main className="flex-1 overflow-y-auto pb-24">
+            
+            {/* Main Content - extra padding on mobile for bottom nav */}
+            <main className="flex-1 overflow-y-auto pb-36 md:pb-24">
               {children}
             </main>
           </div>
+          
+          {/* Player */}
           <Player />
+          
+          {/* Mobile Bottom Nav - only shows on small screens */}
+          <MobileNav />
         </div>
       </FriendsProvider>
     </FavoritesProvider>
