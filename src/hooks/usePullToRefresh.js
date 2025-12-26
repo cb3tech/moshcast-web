@@ -87,10 +87,10 @@ export function PullIndicator({ progress, isRefreshing }) {
         <div className="w-6 h-6 border-2 border-mosh-accent border-t-transparent rounded-full animate-spin" />
       ) : (
         <div 
-          className="w-6 h-6 text-mosh-accent transition-transform"
+          className="w-6 h-6 text-mosh-accent transition-transform text-center"
           style={{ transform: `rotate(${progress * 180}deg)` }}
         >
-          ↓
+          &#8595;
         </div>
       )}
     </div>
