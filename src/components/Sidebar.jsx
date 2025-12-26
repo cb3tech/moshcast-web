@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Library, Upload, Search, Radio, ListMusic, Heart } from 'lucide-react'
+import { Home, Library, Upload, Search, Radio, ListMusic, Heart, Settings, Newspaper } from 'lucide-react'
 
 export default function Sidebar() {
   const linkClass = ({ isActive }) =>
@@ -68,6 +68,11 @@ export default function Sidebar() {
             <ListMusic className="w-5 h-5" />
             <span>Playlists</span>
           </NavLink>
+
+          <NavLink to="/news" className={linkClass}>
+            <Newspaper className="w-5 h-5" />
+            <span>Music News</span>
+          </NavLink>
         </div>
 
         {/* Divider */}
@@ -78,6 +83,11 @@ export default function Sidebar() {
           <NavLink to="/upload" className={linkClass}>
             <Upload className="w-5 h-5" />
             <span>Upload Music</span>
+          </NavLink>
+
+          <NavLink to="/settings" className={linkClass}>
+            <Settings className="w-5 h-5" />
+            <span>Settings</span>
           </NavLink>
         </div>
       </nav>
