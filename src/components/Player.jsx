@@ -33,7 +33,8 @@ export default function Player() {
     { name: 'Orange', primary: [249, 115, 22], secondary: [220, 90, 20], glow: [255, 180, 100] },
     { name: 'Pink', primary: [236, 72, 153], secondary: [200, 50, 130], glow: [255, 150, 200] },
     { name: 'Cyan', primary: [34, 211, 238], secondary: [20, 180, 200], glow: [150, 240, 255] },
-    { name: 'Rainbow', primary: null, secondary: null, glow: null }, // Special cycling mode
+    { name: 'Rainbow', primary: null, secondary: null, glow: null }, // Rainbow per-bar
+    { name: 'Cycle', primary: 'cycle', secondary: 'cycle', glow: 'cycle' }, // Auto-cycle through schemes
   ]
 
   // Keyboard shortcuts
@@ -94,8 +95,15 @@ export default function Player() {
   
   // Get color based on scheme and optional position (for rainbow)
   const getColor = (scheme, intensity, position = 0) => {
+    // Cycle mode - rotate through solid colors every ~3 seconds
+    if (scheme.primary === 'cycle') {
+      const cycleIndex = Math.floor(Date.now() / 3000) % 7 // 7 solid colors (exclude rainbow/cycle)
+      const cycleScheme = colorSchemes[cycleIndex]
+      const [r, g, b] = cycleScheme.primary
+      return `rgba(${r}, ${g}, ${b}, ${0.4 + intensity * 0.6})`
+    }
+    // Rainbow mode - cycle based on position and time
     if (scheme.primary === null) {
-      // Rainbow mode - cycle based on position and time
       const hue = (position * 5 + Date.now() / 20) % 360
       return `hsla(${hue}, 80%, 60%, ${0.4 + intensity * 0.6})`
     }
@@ -104,6 +112,12 @@ export default function Player() {
   }
   
   const getSecondaryColor = (scheme, intensity, position = 0) => {
+    if (scheme.secondary === 'cycle') {
+      const cycleIndex = Math.floor(Date.now() / 3000) % 7
+      const cycleScheme = colorSchemes[cycleIndex]
+      const [r, g, b] = cycleScheme.secondary
+      return `rgba(${r}, ${g}, ${b}, ${0.3 + intensity * 0.5})`
+    }
     if (scheme.secondary === null) {
       const hue = (position * 5 + Date.now() / 20 + 30) % 360
       return `hsla(${hue}, 70%, 50%, ${0.3 + intensity * 0.5})`
@@ -113,6 +127,12 @@ export default function Player() {
   }
   
   const getGlowColor = (scheme, position = 0) => {
+    if (scheme.glow === 'cycle') {
+      const cycleIndex = Math.floor(Date.now() / 3000) % 7
+      const cycleScheme = colorSchemes[cycleIndex]
+      const [r, g, b] = cycleScheme.glow
+      return `rgba(${r}, ${g}, ${b}, 0.8)`
+    }
     if (scheme.glow === null) {
       const hue = (position * 5 + Date.now() / 20) % 360
       return `hsla(${hue}, 90%, 70%, 0.8)`
@@ -379,7 +399,7 @@ export default function Player() {
               onClick={() => setVisualizerMode((visualizerMode + 1) % 6)}
               onContextMenu={(e) => {
                 e.preventDefault()
-                setColorMode((colorMode + 1) % colorSchemes.length)
+                setColorMode((colorMode + 1) % 9)
               }}
               title={`${visualizerModes[visualizerMode]} • ${colorSchemes[colorMode].name} (left click: mode, right click: color)`}
             />
