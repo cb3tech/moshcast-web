@@ -7,7 +7,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://moshcast-production.up.
 
 export default function LiveStreams() {
   const navigate = useNavigate();
-  const { friends, sendFriendRequest, pendingSent } = useFriends();
+  const { friends = [], sendFriendRequest, pendingSent = [] } = useFriends();
   const [streams, setStreams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -38,17 +38,17 @@ export default function LiveStreams() {
 
   // Check if user is friends with host
   const isFriendWith = (hostUsername) => {
-    return friends.some(f => f.username === hostUsername);
+    return friends?.some(f => f.username === hostUsername) || false;
   };
 
   // Check if request already sent
   const requestSentTo = (hostUsername) => {
-    return pendingSent.some(r => r.username === hostUsername);
+    return pendingSent?.some(r => r.username === hostUsername) || false;
   };
 
   // Handle join stream
   const handleJoin = (hostUsername) => {
-    navigate(`/live?join=${hostUsername}`);
+    navigate(`/join/${hostUsername}`);
   };
 
   // Handle send friend request
@@ -65,6 +65,7 @@ export default function LiveStreams() {
 
   // Format time elapsed
   const formatElapsed = (startedAt) => {
+    if (!startedAt) return 'Live';
     const elapsed = Math.floor((Date.now() - startedAt) / 1000 / 60);
     if (elapsed < 1) return 'Just started';
     if (elapsed < 60) return `${elapsed}m`;
@@ -143,7 +144,7 @@ export default function LiveStreams() {
                     <div className="flex items-center gap-3 text-sm text-gray-400">
                       <span className="flex items-center gap-1">
                         <Users className="w-4 h-4" />
-                        {stream.listenerCount}
+                        {stream.listenerCount || 0}
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="w-4 h-4" />
