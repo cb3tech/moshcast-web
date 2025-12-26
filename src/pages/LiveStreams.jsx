@@ -48,7 +48,7 @@ export default function LiveStreams() {
 
   // Handle join stream
   const handleJoin = (hostUsername) => {
-    navigate(`/golive?join=${hostUsername}`);
+    navigate(`/live?join=${hostUsername}`);
   };
 
   // Handle send friend request
@@ -113,7 +113,7 @@ export default function LiveStreams() {
           <h2 className="text-xl font-semibold text-white mb-2">No Active Streams</h2>
           <p className="text-gray-400 mb-6">Be the first to start streaming!</p>
           <button
-            onClick={() => navigate('/golive')}
+            onClick={() => navigate('/live')}
             className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-full font-medium transition-colors"
           >
             Start Streaming
