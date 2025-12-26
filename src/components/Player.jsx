@@ -93,13 +93,34 @@ export default function Player() {
   // Visualizer mode names
   const visualizerModes = ['Bars', 'Mirrored', 'Circular', 'Waveform', 'Glow', 'Peak Hold']
   
+  // Lerp (linear interpolate) between two RGB colors
+  const lerpColor = (color1, color2, t) => {
+    return [
+      Math.round(color1[0] + (color2[0] - color1[0]) * t),
+      Math.round(color1[1] + (color2[1] - color1[1]) * t),
+      Math.round(color1[2] + (color2[2] - color1[2]) * t)
+    ]
+  }
+  
+  // Get interpolated cycle color (smooth fade between schemes)
+  const getCycleColor = (type) => {
+    const cycleTime = 3000 // 3 seconds per color
+    const now = Date.now()
+    const currentIndex = Math.floor(now / cycleTime) % 7
+    const nextIndex = (currentIndex + 1) % 7
+    const t = (now % cycleTime) / cycleTime // 0-1 progress through current cycle
+    
+    const currentScheme = colorSchemes[currentIndex]
+    const nextScheme = colorSchemes[nextIndex]
+    
+    return lerpColor(currentScheme[type], nextScheme[type], t)
+  }
+  
   // Get color based on scheme and optional position (for rainbow)
   const getColor = (scheme, intensity, position = 0) => {
-    // Cycle mode - rotate through solid colors every ~3 seconds
+    // Cycle mode - smooth fade through solid colors
     if (scheme.primary === 'cycle') {
-      const cycleIndex = Math.floor(Date.now() / 3000) % 7 // 7 solid colors (exclude rainbow/cycle)
-      const cycleScheme = colorSchemes[cycleIndex]
-      const [r, g, b] = cycleScheme.primary
+      const [r, g, b] = getCycleColor('primary')
       return `rgba(${r}, ${g}, ${b}, ${0.4 + intensity * 0.6})`
     }
     // Rainbow mode - cycle based on position and time
@@ -113,9 +134,7 @@ export default function Player() {
   
   const getSecondaryColor = (scheme, intensity, position = 0) => {
     if (scheme.secondary === 'cycle') {
-      const cycleIndex = Math.floor(Date.now() / 3000) % 7
-      const cycleScheme = colorSchemes[cycleIndex]
-      const [r, g, b] = cycleScheme.secondary
+      const [r, g, b] = getCycleColor('secondary')
       return `rgba(${r}, ${g}, ${b}, ${0.3 + intensity * 0.5})`
     }
     if (scheme.secondary === null) {
@@ -128,9 +147,7 @@ export default function Player() {
   
   const getGlowColor = (scheme, position = 0) => {
     if (scheme.glow === 'cycle') {
-      const cycleIndex = Math.floor(Date.now() / 3000) % 7
-      const cycleScheme = colorSchemes[cycleIndex]
-      const [r, g, b] = cycleScheme.glow
+      const [r, g, b] = getCycleColor('glow')
       return `rgba(${r}, ${g}, ${b}, 0.8)`
     }
     if (scheme.glow === null) {
