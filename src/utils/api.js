@@ -38,6 +38,25 @@ const fetchWithAuth = async (endpoint, options = {}) => {
   return data
 }
 
+// Generic API methods
+export const api = {
+  get: (endpoint) => fetchWithAuth(endpoint),
+  
+  post: (endpoint, data) => fetchWithAuth(endpoint, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  
+  put: (endpoint, data) => fetchWithAuth(endpoint, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  
+  delete: (endpoint) => fetchWithAuth(endpoint, {
+    method: 'DELETE',
+  }),
+}
+
 // Auth API
 export const auth = {
   signup: (email, password, username) =>
