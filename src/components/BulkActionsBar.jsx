@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Trash2, ListPlus, Edit2, Image, X, Plus, Music, Loader2 } from 'lucide-react'
+import { Trash2, ListPlus, Edit2, Image, X, Plus, Music, Loader2, FileText } from 'lucide-react'
 import { playlists as playlistsAPI } from '../utils/api'
 
 export default function BulkActionsBar({ 
@@ -8,7 +8,8 @@ export default function BulkActionsBar({
   onDelete, 
   onAddToPlaylist, 
   onEdit,
-  onFetchArtwork 
+  onFetchArtwork,
+  onParseFilename
 }) {
   const [showPlaylistDropdown, setShowPlaylistDropdown] = useState(false)
   const [playlists, setPlaylists] = useState([])
@@ -177,6 +178,16 @@ export default function BulkActionsBar({
               </div>
             )}
           </div>
+
+          {/* Parse Filename */}
+          <button
+            onClick={onParseFilename}
+            className="flex items-center gap-2 px-3 py-1.5 bg-mosh-card hover:bg-mosh-hover border border-mosh-border rounded-md text-sm text-mosh-light transition"
+            title="Extract artist/title from filename"
+          >
+            <FileText className="w-4 h-4" />
+            Parse Filename
+          </button>
 
           {/* Edit Metadata */}
           <button
