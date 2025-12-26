@@ -134,6 +134,12 @@ export const library = {
       method: 'POST',
       body: JSON.stringify({ songIds }),
     }),
+
+  // Sync storage counter with actual files (fixes storage mismatch)
+  syncStorage: () =>
+    fetchWithAuth('/library/sync-storage', {
+      method: 'POST',
+    }),
 }
 
 // Upload API
