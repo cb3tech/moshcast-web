@@ -15,6 +15,8 @@ import Playlists from './pages/Playlists'
 import Favorites from './pages/Favorites'
 import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
+import Settings from './pages/Settings'
+import News from './pages/News'
 import { Loader2 } from 'lucide-react'
 
 // Protected route wrapper
@@ -73,7 +75,6 @@ export default function App() {
           </MainLayout>
         </ProtectedRoute>
       } />
-
       <Route path="/library" element={
         <ProtectedRoute>
           <MainLayout>
@@ -81,7 +82,6 @@ export default function App() {
           </MainLayout>
         </ProtectedRoute>
       } />
-
       <Route path="/upload" element={
         <ProtectedRoute>
           <MainLayout>
@@ -89,7 +89,6 @@ export default function App() {
           </MainLayout>
         </ProtectedRoute>
       } />
-
       <Route path="/live" element={
         <ProtectedRoute>
           <MainLayout>
@@ -97,7 +96,6 @@ export default function App() {
           </MainLayout>
         </ProtectedRoute>
       } />
-
       <Route path="/playlists" element={
         <ProtectedRoute>
           <MainLayout>
@@ -105,7 +103,6 @@ export default function App() {
           </MainLayout>
         </ProtectedRoute>
       } />
-
       <Route path="/favorites" element={
         <ProtectedRoute>
           <MainLayout>
@@ -113,11 +110,24 @@ export default function App() {
           </MainLayout>
         </ProtectedRoute>
       } />
-
       <Route path="/search" element={
         <ProtectedRoute>
           <MainLayout>
             <Library />
+          </MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/settings" element={
+        <ProtectedRoute>
+          <MainLayout>
+            <Settings />
+          </MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/news" element={
+        <ProtectedRoute>
+          <MainLayout>
+            <News />
           </MainLayout>
         </ProtectedRoute>
       } />
