@@ -406,7 +406,7 @@ export default function Player() {
   return (
     <>
       {/* Floating Player Container */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-4xl">
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-4xl">
         <div className="bg-mosh-darker/95 backdrop-blur-xl border border-mosh-border rounded-2xl shadow-2xl shadow-black/50">
           {/* Audio Visualizer - Left click: cycle modes, Right click: cycle colors */}
           <div className="relative group overflow-hidden rounded-t-2xl">
