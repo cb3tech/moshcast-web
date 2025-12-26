@@ -1,16 +1,16 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Loader2 } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { api } from '../utils/api'
+import { Loader2 } from 'lucide-react'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
+  const [error, setError] = useState('')
+  
   const { login } = useAuth()
+  const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -18,18 +18,18 @@ export default function Login() {
     setLoading(true)
 
     try {
-      const response = await api.post('/auth/login', { email, password })
-      login(response.token, response.user)
+      await login(email, password)
       navigate('/')
     } catch (err) {
-      setError(err.message || 'Login failed')
+      setError(err.message)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-mosh-dark to-mosh-black flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-b from-mosh-card to-mosh-black flex flex-col items-center justify-center p-4">
+      {/* Logo */}
       <div className="flex items-center gap-3 mb-8">
         <div className="w-12 h-12 bg-mosh-accent rounded-full flex items-center justify-center">
           <span className="text-2xl">🤘</span>
@@ -37,9 +37,10 @@ export default function Login() {
         <span className="text-3xl font-bold text-mosh-light">Moshcast</span>
       </div>
 
+      {/* Card */}
       <div className="w-full max-w-md bg-mosh-darker rounded-lg p-8">
         <h1 className="text-2xl font-bold text-center mb-8">Log in to Moshcast</h1>
-
+        
         {error && (
           <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-md mb-6 text-sm">
             {error}
@@ -98,6 +99,7 @@ export default function Login() {
         </div>
       </div>
 
+      {/* Tagline */}
       <p className="mt-8 text-mosh-muted text-sm">
         Your music. Your library. Anywhere.
       </p>
