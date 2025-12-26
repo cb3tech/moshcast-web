@@ -1,7 +1,13 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Library, Upload, Search, Radio, ListMusic, Heart, Settings, Newspaper } from 'lucide-react'
+import { Home, Library, Upload, Search, Radio, ListMusic, Heart, Settings, Newspaper, Users } from 'lucide-react'
+import { useFriends } from '../context/FriendsContext'
 
 export default function Sidebar() {
+  const { pendingRequests, friendsListening } = useFriends()
+  
+  // Calculate total notifications (pending requests + friends listening)
+  const notificationCount = (pendingRequests?.length || 0) + (friendsListening?.length || 0)
+
   const linkClass = ({ isActive }) =>
     `flex items-center gap-3 px-3 py-2 rounded-lg transition ${
       isActive 
@@ -34,7 +40,7 @@ export default function Sidebar() {
           }
         >
           <Radio className="w-5 h-5" />
-          <span>Go Live</span>
+          <span>Start a Session</span>
         </NavLink>
       </div>
 
@@ -47,6 +53,24 @@ export default function Sidebar() {
           <NavLink to="/" className={linkClass} end>
             <Home className="w-5 h-5" />
             <span>Home</span>
+          </NavLink>
+          
+          <NavLink to="/friends" className={linkClass}>
+            <div className="relative">
+              <Users className="w-5 h-5" />
+              {notificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </span>
+              )}
+            </div>
+            <span>Friends</span>
+            {friendsListening?.length > 0 && (
+              <span className="ml-auto flex items-center gap-1 text-xs text-green-400">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                {friendsListening.length} live
+              </span>
+            )}
           </NavLink>
           
           <NavLink to="/search" className={linkClass}>
