@@ -365,8 +365,13 @@ export default function Library() {
             >
               Album {sortBy === 'album' && (sortOrder === 'ASC' ? '↑' : '↓')}
             </div>
-            <div className="w-16 text-right">
+            <div 
+              className="w-16 text-right cursor-pointer hover:text-mosh-light transition"
+              onClick={() => handleSort('duration')}
+              title="Sort by duration"
+            >
               <Clock className="w-4 h-4 inline" />
+              {sortBy === 'duration' && (sortOrder === 'ASC' ? ' ↑' : ' ↓')}
             </div>
             <div className="w-9" />
           </div>
