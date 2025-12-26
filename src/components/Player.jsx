@@ -28,8 +28,9 @@ export default function Player() {
   const colorSchemes = [
     { name: 'Green', primary: [30, 215, 96], secondary: [30, 185, 96], glow: [100, 255, 150] },
     { name: 'Blue', primary: [66, 135, 245], secondary: [40, 100, 200], glow: [130, 180, 255] },
-    { name: 'Purple', primary: [168, 85, 247], secondary: [140, 60, 200], glow: [200, 150, 255] },
     { name: 'Red', primary: [239, 68, 68], secondary: [200, 50, 50], glow: [255, 150, 150] },
+    { name: 'Yellow', primary: [250, 204, 21], secondary: [220, 180, 20], glow: [255, 240, 100] },
+    { name: 'Purple', primary: [168, 85, 247], secondary: [140, 60, 200], glow: [200, 150, 255] },
     { name: 'Orange', primary: [249, 115, 22], secondary: [220, 90, 20], glow: [255, 180, 100] },
     { name: 'Pink', primary: [236, 72, 153], secondary: [200, 50, 130], glow: [255, 150, 200] },
     { name: 'Cyan', primary: [34, 211, 238], secondary: [20, 180, 200], glow: [150, 240, 255] },
@@ -106,8 +107,8 @@ export default function Player() {
   const getCycleColor = (type) => {
     const cycleTime = 3000 // 3 seconds per color
     const now = Date.now()
-    const currentIndex = Math.floor(now / cycleTime) % 7
-    const nextIndex = (currentIndex + 1) % 7
+    const currentIndex = Math.floor(now / cycleTime) % 8 // 8 solid colors (exclude rainbow/cycle)
+    const nextIndex = (currentIndex + 1) % 8
     const t = (now % cycleTime) / cycleTime // 0-1 progress through current cycle
     
     const currentScheme = colorSchemes[currentIndex]
@@ -417,7 +418,7 @@ export default function Player() {
               onClick={() => setVisualizerMode((visualizerMode + 1) % 6)}
               onContextMenu={(e) => {
                 e.preventDefault()
-                setColorMode((colorMode + 1) % 9)
+                setColorMode((colorMode + 1) % 10)
               }}
               title={`${visualizerModes[visualizerMode]} • ${colorSchemes[colorMode].name} (left click: mode, right click: color)`}
             />
