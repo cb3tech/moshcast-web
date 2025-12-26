@@ -49,3 +49,61 @@ body {
     overflow: hidden;
   }
 }
+
+/* ========================================
+   MOBILE STYLES
+   ======================================== */
+
+/* Safe area support for iPhone notch/home indicator */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Prevent text selection on touch interactions */
+.touch-none {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Smooth momentum scrolling on iOS */
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hide scrollbars on mobile but keep functionality */
+@media (max-width: 768px) {
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Minimum touch target size (44x44 per Apple HIG) */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Active state feedback for touch */
+@media (hover: none) {
+  .touch-feedback:active {
+    opacity: 0.7;
+    transform: scale(0.98);
+  }
+}
+
+/* Pull-to-refresh container */
+.ptr-container {
+  overscroll-behavior-y: contain;
+}
