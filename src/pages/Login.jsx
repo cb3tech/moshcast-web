@@ -22,7 +22,7 @@ export default function Login() {
       login(response.token, response.user)
       navigate('/')
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed')
+      setError(err.message || 'Login failed')
     } finally {
       setLoading(false)
     }
