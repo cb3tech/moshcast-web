@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
-import { library as libraryAPI } from '../utils/api'
+import { library as libraryAPI, playlists as playlistsAPI } from '../utils/api'
 import SongRow from '../components/SongRow'
 import EditSongModal from '../components/EditSongModal'
-import { Clock, Music, Loader2, Search } from 'lucide-react'
+import BulkActionsBar from '../components/BulkActionsBar'
+import BulkEditModal from '../components/BulkEditModal'
+import { Clock, Music, Loader2, Search, CheckSquare, Square } from 'lucide-react'
 
 export default function Library() {
   const [songs, setSongs] = useState([])
@@ -12,6 +14,11 @@ export default function Library() {
   const [sortBy, setSortBy] = useState('created_at')
   const [sortOrder, setSortOrder] = useState('DESC')
   const [editingSong, setEditingSong] = useState(null)
+  
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [showBulkEdit, setShowBulkEdit] = useState(false)
+  const [bulkLoading, setBulkLoading] = useState(false)
 
   useEffect(() => {
     loadLibrary()
@@ -22,6 +29,8 @@ export default function Library() {
     try {
       const data = await libraryAPI.getAll({ sort: sortBy, order: sortOrder })
       setSongs(data.songs || [])
+      // Clear selection when library reloads
+      setSelectedIds(new Set())
     } catch (err) {
       setError(err.message)
     } finally {
@@ -32,6 +41,11 @@ export default function Library() {
   // Handle song deletion
   const handleDelete = (songId) => {
     setSongs(prev => prev.filter(s => s.id !== songId))
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.delete(songId)
+      return next
+    })
   }
 
   // Handle song edit
@@ -64,6 +78,121 @@ export default function Library() {
       setSortOrder('ASC')
     }
   }
+
+  // Selection handlers
+  const toggleSelect = (songId) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(songId)) {
+        next.delete(songId)
+      } else {
+        next.add(songId)
+      }
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredSongs.length) {
+      // Deselect all
+      setSelectedIds(new Set())
+    } else {
+      // Select all filtered
+      setSelectedIds(new Set(filteredSongs.map(s => s.id)))
+    }
+  }
+
+  const clearSelection = () => {
+    setSelectedIds(new Set())
+  }
+
+  // Bulk actions
+  const handleBulkDelete = async () => {
+    const count = selectedIds.size
+    if (!confirm(`Delete ${count} song${count !== 1 ? 's' : ''}? This cannot be undone.`)) {
+      return
+    }
+
+    setBulkLoading(true)
+    try {
+      await libraryAPI.bulkDelete(Array.from(selectedIds))
+      // Remove deleted songs from state
+      setSongs(prev => prev.filter(s => !selectedIds.has(s.id)))
+      setSelectedIds(new Set())
+    } catch (err) {
+      console.error('Bulk delete failed:', err)
+      alert('Failed to delete songs: ' + err.message)
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
+  const handleBulkAddToPlaylist = async (playlistId) => {
+    setBulkLoading(true)
+    try {
+      const result = await playlistsAPI.addSongsBulk(playlistId, Array.from(selectedIds))
+      alert(`Added ${result.addedCount} song${result.addedCount !== 1 ? 's' : ''} to playlist`)
+      setSelectedIds(new Set())
+    } catch (err) {
+      console.error('Bulk add to playlist failed:', err)
+      alert('Failed to add songs to playlist: ' + err.message)
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
+  const handleBulkFetchArtwork = async () => {
+    const count = selectedIds.size
+    if (count > 50) {
+      alert('Maximum 50 songs for artwork fetch. Please select fewer songs.')
+      return
+    }
+
+    setBulkLoading(true)
+    try {
+      const result = await libraryAPI.bulkFetchArtwork(Array.from(selectedIds))
+      
+      // Update songs with new artwork
+      if (result.updated && result.updated.length > 0) {
+        setSongs(prev => prev.map(song => {
+          const updated = result.updated.find(u => u.id === song.id)
+          if (updated) {
+            return { ...song, artwork_url: updated.artwork_url }
+          }
+          return song
+        }))
+      }
+
+      // Show results
+      let msg = `Artwork fetch complete:\n`
+      if (result.updated?.length) msg += `✓ Updated: ${result.updated.length}\n`
+      if (result.notFound?.length) msg += `○ Not found: ${result.notFound.length}\n`
+      if (result.failed?.length) msg += `✗ Failed: ${result.failed.length}`
+      alert(msg)
+      
+      setSelectedIds(new Set())
+    } catch (err) {
+      console.error('Bulk fetch artwork failed:', err)
+      alert('Failed to fetch artwork: ' + err.message)
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
+  const handleBulkEdit = () => {
+    setShowBulkEdit(true)
+  }
+
+  const handleBulkEditSave = (result) => {
+    // Refresh library to get updated data
+    loadLibrary()
+  }
+
+  // Get selected songs for bulk edit modal
+  const selectedSongs = songs.filter(s => selectedIds.has(s.id))
+
+  const allSelected = filteredSongs.length > 0 && selectedIds.size === filteredSongs.length
+  const someSelected = selectedIds.size > 0 && selectedIds.size < filteredSongs.length
 
   return (
     <div className="p-6">
@@ -99,6 +228,26 @@ export default function Library() {
           <option value="album">Album</option>
         </select>
       </div>
+
+      {/* Bulk Actions Bar */}
+      <BulkActionsBar
+        selectedCount={selectedIds.size}
+        onClear={clearSelection}
+        onDelete={handleBulkDelete}
+        onAddToPlaylist={handleBulkAddToPlaylist}
+        onEdit={handleBulkEdit}
+        onFetchArtwork={handleBulkFetchArtwork}
+      />
+
+      {/* Bulk loading overlay */}
+      {bulkLoading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-mosh-card rounded-lg p-6 flex items-center gap-3">
+            <Loader2 className="w-6 h-6 text-mosh-accent animate-spin" />
+            <span className="text-mosh-light">Processing...</span>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       {loading ? (
@@ -142,6 +291,22 @@ export default function Library() {
         <div className="bg-mosh-dark rounded-lg">
           {/* Header Row */}
           <div className="flex items-center px-4 py-3 border-b border-mosh-border text-sm text-mosh-muted">
+            {/* Select All Checkbox */}
+            <button
+              onClick={toggleSelectAll}
+              className="w-8 flex justify-center text-mosh-muted hover:text-mosh-light transition"
+              title={allSelected ? 'Deselect all' : 'Select all'}
+            >
+              {allSelected ? (
+                <CheckSquare className="w-5 h-5 text-mosh-accent" />
+              ) : someSelected ? (
+                <div className="w-5 h-5 border-2 border-mosh-accent bg-mosh-accent/30 rounded flex items-center justify-center">
+                  <div className="w-2 h-0.5 bg-mosh-accent" />
+                </div>
+              ) : (
+                <Square className="w-5 h-5" />
+              )}
+            </button>
             <div className="w-8 text-center">#</div>
             <div className="w-10 ml-3" />
             <div 
@@ -171,17 +336,29 @@ export default function Library() {
               queue={filteredSongs}
               onDelete={handleDelete}
               onEdit={handleEdit}
+              isSelected={selectedIds.has(song.id)}
+              onToggleSelect={() => toggleSelect(song.id)}
+              showCheckbox={true}
             />
           ))}
         </div>
       )}
 
-      {/* Edit Modal */}
+      {/* Edit Modal (single song) */}
       {editingSong && (
         <EditSongModal
           song={editingSong}
           onClose={() => setEditingSong(null)}
           onSave={handleSongUpdated}
+        />
+      )}
+
+      {/* Bulk Edit Modal */}
+      {showBulkEdit && (
+        <BulkEditModal
+          selectedSongs={selectedSongs}
+          onClose={() => setShowBulkEdit(false)}
+          onSave={handleBulkEditSave}
         />
       )}
     </div>
