@@ -17,6 +17,11 @@ export function PlayerProvider({ children }) {
   const howlRef = useRef(null)
   const progressInterval = useRef(null)
   
+  // Audio visualization refs (exposed for Player component)
+  const audioContextRef = useRef(null)
+  const analyserRef = useRef(null)
+  const sourceNodeRef = useRef(null)
+  
   // Refs to track current values for callbacks (avoid stale closures)
   const queueRef = useRef(queue)
   const queueIndexRef = useRef(queueIndex)
@@ -41,6 +46,9 @@ export function PlayerProvider({ children }) {
       }
       if (progressInterval.current) {
         clearInterval(progressInterval.current)
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close()
       }
     }
   }, [])
@@ -121,6 +129,53 @@ export function PlayerProvider({ children }) {
   // Keep handleSongEnd ref updated
   handleSongEndRef.current = handleSongEnd
 
+  // Setup audio analyser for visualization
+  const setupAudioAnalyser = useCallback((audioNode) => {
+    if (!audioNode) return
+    
+    try {
+      // Create AudioContext if needed
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)()
+      }
+      
+      // Resume context if suspended (browser autoplay policy)
+      if (audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume()
+      }
+      
+      // Create analyser if needed
+      if (!analyserRef.current) {
+        analyserRef.current = audioContextRef.current.createAnalyser()
+        analyserRef.current.fftSize = 256
+        analyserRef.current.smoothingTimeConstant = 0.8
+      }
+      
+      // Only create source node once per audio element
+      // Check if this audio element already has a source
+      if (sourceNodeRef.current) {
+        // Disconnect old source
+        try {
+          sourceNodeRef.current.disconnect()
+        } catch (e) {
+          // Ignore disconnect errors
+        }
+        sourceNodeRef.current = null
+      }
+      
+      // Create new source from audio element
+      const source = audioContextRef.current.createMediaElementSource(audioNode)
+      source.connect(analyserRef.current)
+      analyserRef.current.connect(audioContextRef.current.destination)
+      sourceNodeRef.current = source
+      
+      console.log('🎨 Audio analyser connected successfully')
+    } catch (e) {
+      console.warn('🎨 Audio analyser setup failed:', e.message)
+      // Don't break playback if visualizer fails
+    }
+  }, [])
+
   // Internal play function (doesn't depend on state)
   const playSongInternal = (song, songQueue, index) => {
     console.log('🎵 playSongInternal:', { song: song?.title, index, queueLength: songQueue.length })
@@ -134,6 +189,9 @@ export function PlayerProvider({ children }) {
     if (howlRef.current) {
       howlRef.current.unload()
     }
+    
+    // Reset source node ref for new song
+    sourceNodeRef.current = null
 
     // Update refs IMMEDIATELY (don't wait for useEffect)
     queueRef.current = songQueue
@@ -147,7 +205,7 @@ export function PlayerProvider({ children }) {
     console.log('🎵 Updated queueIndexRef to:', queueIndexRef.current)
     setProgress(0)
 
-    // Create new Howl
+    // Create new Howl with CORS support
     howlRef.current = new Howl({
       src: [song.file_url],
       html5: true,
@@ -156,10 +214,21 @@ export function PlayerProvider({ children }) {
       onload: () => {
         console.log('🎵 Howl onload - duration:', howlRef.current.duration())
         setDuration(howlRef.current.duration())
+        
+        // Setup audio analyser after load
+        const audioNode = howlRef.current._sounds?.[0]?._node
+        if (audioNode) {
+          setupAudioAnalyser(audioNode)
+        }
       },
       onplay: () => {
         console.log('🎵 Howl onplay')
         setIsPlaying(true)
+        
+        // Resume audio context if needed
+        if (audioContextRef.current?.state === 'suspended') {
+          audioContextRef.current.resume()
+        }
       },
       onpause: () => {
         setIsPlaying(false)
@@ -180,6 +249,16 @@ export function PlayerProvider({ children }) {
         })
       }
     })
+
+    // Set crossOrigin on the underlying audio element for CORS
+    // This must be done before play() loads the audio
+    setTimeout(() => {
+      const audioNode = howlRef.current?._sounds?.[0]?._node
+      if (audioNode) {
+        audioNode.crossOrigin = 'anonymous'
+        console.log('🎨 Set crossOrigin on audio element')
+      }
+    }, 0)
 
     howlRef.current.play()
   }
@@ -278,6 +357,8 @@ export function PlayerProvider({ children }) {
       shuffle,
       autoplay,
       howlRef,
+      analyserRef,  // Exposed for visualizer
+      audioContextRef,  // Exposed for visualizer
       playSong,
       togglePlay,
       seek,
