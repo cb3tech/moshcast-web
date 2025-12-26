@@ -15,6 +15,7 @@ import JoinStream from './pages/JoinStream'
 import Playlists from './pages/Playlists'
 import Favorites from './pages/Favorites'
 import Friends from './pages/Friends'
+import LiveStreams from './pages/LiveStreams'
 import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
 import Settings from './pages/Settings'
@@ -97,6 +98,13 @@ export default function App() {
         <ProtectedRoute>
           <MainLayout>
             <GoLive />
+          </MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/streams" element={
+        <ProtectedRoute>
+          <MainLayout>
+            <LiveStreams />
           </MainLayout>
         </ProtectedRoute>
       } />
