@@ -31,11 +31,11 @@ export default function Signup() {
     setLoading(true)
 
     try {
-      const response = await api.post('/api/auth/signup', { email, username, password })
-      login(response.data.token, response.data.user)
+      const response = await api.post('/auth/signup', { email, username, password })
+      login(response.token, response.user)
       navigate('/')
     } catch (err) {
-      setError(err.response?.data?.error || 'Signup failed')
+      setError(err.message || 'Signup failed')
     } finally {
       setLoading(false)
     }
