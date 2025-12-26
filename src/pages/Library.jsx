@@ -179,6 +179,48 @@ export default function Library() {
     }
   }
 
+  const handleBulkParseFilename = async () => {
+    const count = selectedIds.size
+    if (count > 100) {
+      alert('Maximum 100 songs per request. Please select fewer songs.')
+      return
+    }
+
+    setBulkLoading(true)
+    try {
+      const result = await libraryAPI.bulkParseFilename(Array.from(selectedIds))
+      
+      // Update songs with new metadata
+      if (result.updated && result.updated.length > 0) {
+        setSongs(prev => prev.map(song => {
+          const updated = result.updated.find(u => u.id === song.id)
+          if (updated) {
+            return { 
+              ...song, 
+              title: updated.newTitle,
+              artist: updated.newArtist
+            }
+          }
+          return song
+        }))
+      }
+
+      // Show results
+      let msg = `Filename parsing complete:\n`
+      if (result.updated?.length) msg += `✓ Updated: ${result.updated.length}\n`
+      if (result.skipped?.length) msg += `○ Skipped: ${result.skipped.length}\n`
+      if (result.failed?.length) msg += `✗ Failed: ${result.failed.length}`
+      alert(msg)
+      
+      setSelectedIds(new Set())
+    } catch (err) {
+      console.error('Bulk parse filename failed:', err)
+      alert('Failed to parse filenames: ' + err.message)
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
   const handleBulkEdit = () => {
     setShowBulkEdit(true)
   }
@@ -237,6 +279,7 @@ export default function Library() {
         onAddToPlaylist={handleBulkAddToPlaylist}
         onEdit={handleBulkEdit}
         onFetchArtwork={handleBulkFetchArtwork}
+        onParseFilename={handleBulkParseFilename}
       />
 
       {/* Bulk loading overlay */}
