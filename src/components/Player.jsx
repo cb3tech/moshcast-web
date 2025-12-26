@@ -21,7 +21,20 @@ export default function Player() {
   const canvasRef = useRef(null)
   const animationRef = useRef(null)
   const [visualizerMode, setVisualizerMode] = useState(0) // 0-5 for different modes
+  const [colorMode, setColorMode] = useState(0) // Color schemes
   const peakHoldRef = useRef([]) // For peak hold mode
+  
+  // Color schemes: [primary, secondary, glow]
+  const colorSchemes = [
+    { name: 'Green', primary: [30, 215, 96], secondary: [30, 185, 96], glow: [100, 255, 150] },
+    { name: 'Blue', primary: [66, 135, 245], secondary: [40, 100, 200], glow: [130, 180, 255] },
+    { name: 'Purple', primary: [168, 85, 247], secondary: [140, 60, 200], glow: [200, 150, 255] },
+    { name: 'Red', primary: [239, 68, 68], secondary: [200, 50, 50], glow: [255, 150, 150] },
+    { name: 'Orange', primary: [249, 115, 22], secondary: [220, 90, 20], glow: [255, 180, 100] },
+    { name: 'Pink', primary: [236, 72, 153], secondary: [200, 50, 130], glow: [255, 150, 200] },
+    { name: 'Cyan', primary: [34, 211, 238], secondary: [20, 180, 200], glow: [150, 240, 255] },
+    { name: 'Rainbow', primary: null, secondary: null, glow: null }, // Special cycling mode
+  ]
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -78,6 +91,35 @@ export default function Player() {
 
   // Visualizer mode names
   const visualizerModes = ['Bars', 'Mirrored', 'Circular', 'Waveform', 'Glow', 'Peak Hold']
+  
+  // Get color based on scheme and optional position (for rainbow)
+  const getColor = (scheme, intensity, position = 0) => {
+    if (scheme.primary === null) {
+      // Rainbow mode - cycle based on position and time
+      const hue = (position * 5 + Date.now() / 20) % 360
+      return `hsla(${hue}, 80%, 60%, ${0.4 + intensity * 0.6})`
+    }
+    const [r, g, b] = scheme.primary
+    return `rgba(${r}, ${g}, ${b}, ${0.4 + intensity * 0.6})`
+  }
+  
+  const getSecondaryColor = (scheme, intensity, position = 0) => {
+    if (scheme.secondary === null) {
+      const hue = (position * 5 + Date.now() / 20 + 30) % 360
+      return `hsla(${hue}, 70%, 50%, ${0.3 + intensity * 0.5})`
+    }
+    const [r, g, b] = scheme.secondary
+    return `rgba(${r}, ${g}, ${b}, ${0.3 + intensity * 0.5})`
+  }
+  
+  const getGlowColor = (scheme, position = 0) => {
+    if (scheme.glow === null) {
+      const hue = (position * 5 + Date.now() / 20) % 360
+      return `hsla(${hue}, 90%, 70%, 0.8)`
+    }
+    const [r, g, b] = scheme.glow
+    return `rgba(${r}, ${g}, ${b}, 0.8)`
+  }
   
   // Multi-mode audio visualizer using Web Audio API analyser
   // Modes: 0=Bars, 1=Mirrored, 2=Circular, 3=Waveform, 4=Glow Bars, 5=Peak Hold
@@ -141,6 +183,7 @@ export default function Player() {
       }
 
       const mode = visualizerMode
+      const scheme = colorSchemes[colorMode]
       const barWidth = (canvas.width / barCount) * 0.8
       const gap = (canvas.width / barCount) * 0.2
       const centerY = canvas.height / 2
@@ -151,7 +194,7 @@ export default function Player() {
           const x = i * (barWidth + gap)
           const barHeight = Math.max(2, bars[i])
           const intensity = barHeight / (canvas.height * 0.9)
-          ctx.fillStyle = `rgba(30, 215, 96, ${0.4 + intensity * 0.6})`
+          ctx.fillStyle = getColor(scheme, intensity, i)
           ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight)
         }
       }
@@ -162,11 +205,11 @@ export default function Player() {
           const x = i * (barWidth + gap)
           const barHeight = Math.max(2, bars[i] / 2)
           const intensity = barHeight / (canvas.height * 0.45)
-          ctx.fillStyle = `rgba(30, 215, 96, ${0.4 + intensity * 0.6})`
+          ctx.fillStyle = getColor(scheme, intensity, i)
           // Top half
           ctx.fillRect(x, centerY - barHeight, barWidth, barHeight)
           // Bottom half
-          ctx.fillStyle = `rgba(30, 185, 96, ${0.3 + intensity * 0.5})`
+          ctx.fillStyle = getSecondaryColor(scheme, intensity, i)
           ctx.fillRect(x, centerY, barWidth, barHeight)
         }
       }
@@ -191,16 +234,17 @@ export default function Player() {
           ctx.beginPath()
           ctx.moveTo(x1, y1)
           ctx.lineTo(x2, y2)
-          ctx.strokeStyle = `rgba(30, 215, 96, ${0.5 + intensity * 0.5})`
+          ctx.strokeStyle = getColor(scheme, intensity, i)
           ctx.lineWidth = 3
           ctx.lineCap = 'round'
           ctx.stroke()
         }
         
         // Inner circle glow
+        const glowColor = getGlowColor(scheme, 0)
         const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseRadius)
-        gradient.addColorStop(0, 'rgba(30, 215, 96, 0.1)')
-        gradient.addColorStop(1, 'rgba(30, 215, 96, 0)')
+        gradient.addColorStop(0, glowColor.replace('0.8)', '0.1)'))
+        gradient.addColorStop(1, glowColor.replace('0.8)', '0)'))
         ctx.fillStyle = gradient
         ctx.beginPath()
         ctx.arc(cx, cy, baseRadius, 0, Math.PI * 2)
@@ -209,8 +253,9 @@ export default function Player() {
       
       // MODE 3: Waveform/Oscilloscope
       else if (mode === 3) {
+        const waveColor = getGlowColor(scheme, 0)
         ctx.beginPath()
-        ctx.strokeStyle = 'rgba(30, 215, 96, 0.8)'
+        ctx.strokeStyle = waveColor
         ctx.lineWidth = 2
         
         if (hasRealAnalyser && isPlaying && waveformData) {
@@ -241,7 +286,7 @@ export default function Player() {
         ctx.stroke()
         
         // Add glow effect
-        ctx.shadowColor = 'rgba(30, 215, 96, 0.5)'
+        ctx.shadowColor = waveColor.replace('0.8)', '0.5)')
         ctx.shadowBlur = 10
         ctx.stroke()
         ctx.shadowBlur = 0
@@ -249,7 +294,8 @@ export default function Player() {
       
       // MODE 4: Glow Bars
       else if (mode === 4) {
-        ctx.shadowColor = 'rgba(30, 215, 96, 0.8)'
+        const glowColor = getGlowColor(scheme, 0)
+        ctx.shadowColor = glowColor
         ctx.shadowBlur = 15
         
         for (let i = 0; i < barCount; i++) {
@@ -259,9 +305,9 @@ export default function Player() {
           
           // Create gradient for each bar
           const gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight)
-          gradient.addColorStop(0, `rgba(30, 215, 96, ${0.6 + intensity * 0.4})`)
-          gradient.addColorStop(0.5, `rgba(50, 235, 116, ${0.7 + intensity * 0.3})`)
-          gradient.addColorStop(1, `rgba(100, 255, 150, ${0.8 + intensity * 0.2})`)
+          gradient.addColorStop(0, getColor(scheme, 0.6 + intensity * 0.4, i))
+          gradient.addColorStop(0.5, getColor(scheme, 0.7 + intensity * 0.3, i))
+          gradient.addColorStop(1, getGlowColor(scheme, i))
           
           ctx.fillStyle = gradient
           ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight)
@@ -290,7 +336,7 @@ export default function Player() {
           }
           
           // Draw bar
-          ctx.fillStyle = `rgba(30, 215, 96, ${0.4 + intensity * 0.5})`
+          ctx.fillStyle = getColor(scheme, 0.4 + intensity * 0.5, i)
           ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight)
           
           // Draw peak indicator
@@ -310,7 +356,7 @@ export default function Player() {
         cancelAnimationFrame(animationRef.current)
       }
     }
-  }, [isPlaying, analyserRef, audioContextRef, visualizerMode])
+  }, [isPlaying, analyserRef, audioContextRef, visualizerMode, colorMode])
 
   if (!currentSong) {
     return null // Don't show player if no song
@@ -323,7 +369,7 @@ export default function Player() {
       {/* Floating Player Container */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-4xl">
         <div className="bg-mosh-darker/95 backdrop-blur-xl border border-mosh-border rounded-2xl shadow-2xl shadow-black/50 overflow-hidden">
-          {/* Audio Visualizer - Click to cycle modes */}
+          {/* Audio Visualizer - Left click: cycle modes, Right click: cycle colors */}
           <div className="relative group">
             <canvas 
               ref={canvasRef}
@@ -331,11 +377,15 @@ export default function Player() {
               height={80}
               className="w-full h-20 cursor-pointer"
               onClick={() => setVisualizerMode((visualizerMode + 1) % 6)}
-              title={`Visualizer: ${visualizerModes[visualizerMode]} (click to change)`}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                setColorMode((colorMode + 1) % colorSchemes.length)
+              }}
+              title={`${visualizerModes[visualizerMode]} • ${colorSchemes[colorMode].name} (left click: mode, right click: color)`}
             />
-            {/* Mode indicator */}
+            {/* Mode + Color indicator */}
             <div className="absolute top-2 right-2 px-2 py-1 bg-black/50 rounded text-xs text-mosh-light opacity-0 group-hover:opacity-100 transition-opacity">
-              {visualizerModes[visualizerMode]}
+              {visualizerModes[visualizerMode]} • {colorSchemes[colorMode].name}
             </div>
           </div>
 
