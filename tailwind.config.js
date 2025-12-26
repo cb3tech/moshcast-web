@@ -6,24 +6,23 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Space Grotesk', 'system-ui', 'sans-serif'],
+      },
       colors: {
-        // Spotify-inspired dark palette
-        'mosh': {
-          'black': '#000000',
-          'darker': '#121212',
-          'dark': '#181818',
-          'card': '#282828',
-          'hover': '#333333',
-          'border': '#404040',
-          'muted': '#6b7280',
-          'text': '#b3b3b3',
-          'light': '#ffffff',
-          'accent': '#1db954', // Spotify green
+        mosh: {
+          black: '#000000',
+          dark: '#121212',
+          darker: '#0a0a0a',
+          card: '#181818',
+          hover: '#282828',
+          border: '#282828',
+          text: '#a1a1a1',
+          muted: '#6a6a6a',
+          light: '#ffffff',
+          accent: '#1DB954',
           'accent-hover': '#1ed760',
         }
-      },
-      fontFamily: {
-        'sans': ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
       }
     },
   },
