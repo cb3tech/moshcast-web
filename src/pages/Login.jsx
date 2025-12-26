@@ -30,7 +30,6 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-mosh-dark to-mosh-black flex flex-col items-center justify-center p-4">
-      {/* Logo */}
       <div className="flex items-center gap-3 mb-8">
         <div className="w-12 h-12 bg-mosh-accent rounded-full flex items-center justify-center">
           <span className="text-2xl">🤘</span>
@@ -38,7 +37,6 @@ export default function Login() {
         <span className="text-3xl font-bold text-mosh-light">Moshcast</span>
       </div>
 
-      {/* Card */}
       <div className="w-full max-w-md bg-mosh-darker rounded-lg p-8">
         <h1 className="text-2xl font-bold text-center mb-8">Log in to Moshcast</h1>
 
@@ -100,7 +98,6 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Tagline */}
       <p className="mt-8 text-mosh-muted text-sm">
         Your music. Your library. Anywhere.
       </p>
