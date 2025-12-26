@@ -268,6 +268,7 @@ export default function Library() {
           <option value="title">Title</option>
           <option value="artist">Artist</option>
           <option value="album">Album</option>
+          <option value="duration">Duration</option>
         </select>
       </div>
 
