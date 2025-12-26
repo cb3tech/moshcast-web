@@ -127,6 +127,13 @@ export const library = {
       method: 'POST',
       body: JSON.stringify({ songIds }),
     }),
+
+  // Bulk parse filenames to extract artist/title
+  bulkParseFilename: (songIds) =>
+    fetchWithAuth('/library/bulk/parse-filename', {
+      method: 'POST',
+      body: JSON.stringify({ songIds }),
+    }),
 }
 
 // Upload API
