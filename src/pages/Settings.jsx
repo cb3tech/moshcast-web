@@ -25,7 +25,7 @@ export default function Settings() {
 
   const loadSettings = async () => {
     try {
-      const data = await api.get('/settings')
+      const data = await api.get('/api/settings')
       setSettings(data)
     } catch (err) {
       console.error('Failed to load settings:', err)
@@ -36,7 +36,7 @@ export default function Settings() {
 
   const loadFeeds = async () => {
     try {
-      const data = await api.get('/feeds')
+      const data = await api.get('/api/feeds')
       setFeeds(data.feeds || [])
     } catch (err) {
       console.error('Failed to load feeds:', err)
@@ -45,7 +45,7 @@ export default function Settings() {
 
   const loadSuggestions = async () => {
     try {
-      const data = await api.get('/feeds/suggestions')
+      const data = await api.get('/api/feeds/suggestions')
       setSuggestions(data.suggestions || [])
     } catch (err) {
       console.error('Failed to load suggestions:', err)
@@ -56,7 +56,7 @@ export default function Settings() {
     setSaving(true)
     setMessage(null)
     try {
-      await api.put('/settings', settings)
+      await api.put('/api/settings', settings)
       setMessage({ type: 'success', text: 'Settings saved!' })
       setTimeout(() => setMessage(null), 3000)
     } catch (err) {
@@ -69,7 +69,7 @@ export default function Settings() {
   const resetSettings = async () => {
     if (!confirm('Reset all settings to defaults?')) return
     try {
-      const data = await api.post('/settings/reset')
+      const data = await api.post('/api/settings/reset')
       setSettings(data.settings)
       setMessage({ type: 'success', text: 'Settings reset to defaults' })
       setTimeout(() => setMessage(null), 3000)
@@ -81,7 +81,7 @@ export default function Settings() {
   const addFeed = async (url, name, genre) => {
     setAddingFeed(true)
     try {
-      await api.post('/feeds', {
+      await api.post('/api/feeds', {
         feed_url: url,
         feed_name: name || undefined,
         genre_tag: genre || undefined
@@ -99,14 +99,15 @@ export default function Settings() {
     }
   }
 
+  // FIX: Use suggestion.url (not suggestion.feed_url)
   const addSuggestion = (suggestion) => {
-    addFeed(suggestion.feed_url, suggestion.name, suggestion.genre)
+    addFeed(suggestion.url, suggestion.name, suggestion.genre)
   }
 
   const removeFeed = async (feedId) => {
     if (!confirm('Remove this feed?')) return
     try {
-      await api.delete(`/feeds/${feedId}`)
+      await api.delete(`/api/feeds/${feedId}`)
       loadFeeds()
       setMessage({ type: 'success', text: 'Feed removed' })
       setTimeout(() => setMessage(null), 3000)
@@ -117,7 +118,7 @@ export default function Settings() {
 
   const toggleFeed = async (feed) => {
     try {
-      await api.put(`/feeds/${feed.id}`, { enabled: !feed.enabled })
+      await api.put(`/api/feeds/${feed.id}`, { enabled: !feed.enabled })
       loadFeeds()
     } catch (err) {
       console.error('Failed to toggle feed:', err)
@@ -342,7 +343,8 @@ export default function Settings() {
               <h3 className="text-lg font-semibold text-mosh-light mb-4">Suggested Feeds</h3>
               <div className="grid grid-cols-2 gap-3">
                 {suggestions.map((suggestion, idx) => {
-                  const alreadyAdded = feeds.some(f => f.feed_url === suggestion.feed_url)
+                  // FIX: Check suggestion.url (not suggestion.feed_url)
+                  const alreadyAdded = feeds.some(f => f.feed_url === suggestion.url)
                   return (
                     <button
                       key={idx}
