@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { FavoritesProvider } from './context/FavoritesContext'
+import { FriendsProvider } from './context/FriendsContext'
 import Sidebar from './components/Sidebar'
 import Player from './components/Player'
 import AccountMenu from './components/AccountMenu'
@@ -13,6 +14,7 @@ import GoLive from './pages/GoLive'
 import JoinStream from './pages/JoinStream'
 import Playlists from './pages/Playlists'
 import Favorites from './pages/Favorites'
+import Friends from './pages/Friends'
 import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
 import Settings from './pages/Settings'
@@ -39,20 +41,22 @@ function ProtectedRoute({ children }) {
 function MainLayout({ children }) {
   return (
     <FavoritesProvider>
-      <div className="flex h-screen bg-mosh-darker overflow-hidden">
-        <Sidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Header */}
-          <header className="h-16 bg-mosh-darker flex items-center justify-end px-6 flex-shrink-0">
-            <AccountMenu />
-          </header>
-          {/* Main Content */}
-          <main className="flex-1 overflow-y-auto pb-24">
-            {children}
-          </main>
+      <FriendsProvider>
+        <div className="flex h-screen bg-mosh-darker overflow-hidden">
+          <Sidebar />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Header */}
+            <header className="h-16 bg-mosh-darker flex items-center justify-end px-6 flex-shrink-0">
+              <AccountMenu />
+            </header>
+            {/* Main Content */}
+            <main className="flex-1 overflow-y-auto pb-24">
+              {children}
+            </main>
+          </div>
+          <Player />
         </div>
-        <Player />
-      </div>
+      </FriendsProvider>
     </FavoritesProvider>
   )
 }
@@ -93,6 +97,13 @@ export default function App() {
         <ProtectedRoute>
           <MainLayout>
             <GoLive />
+          </MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/friends" element={
+        <ProtectedRoute>
+          <MainLayout>
+            <Friends />
           </MainLayout>
         </ProtectedRoute>
       } />
