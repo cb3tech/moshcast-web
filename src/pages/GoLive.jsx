@@ -215,7 +215,7 @@ export default function GoLive() {
   }
 
   return (
-    <div className="p-6 h-full flex flex-col pb-32">
+    <div className="p-6 pt-52 h-full flex flex-col pb-32">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
