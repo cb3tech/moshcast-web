@@ -64,14 +64,14 @@ export default function LiveStreams() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64 pt-52">
         <Loader2 className="w-8 h-8 text-mosh-accent animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-6xl mx-auto" {...handlers}>
+    <div className="p-4 md:p-6 pt-52 max-w-6xl mx-auto" {...handlers}>
       {/* Pull-to-refresh indicator */}
       <PullIndicator progress={pullProgress} isRefreshing={isRefreshing} />
       
