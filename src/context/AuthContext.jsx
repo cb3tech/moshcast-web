@@ -5,13 +5,15 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
+  const [token, setToken] = useState(localStorage.getItem('moshcast_token'))
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   // Check for existing session on mount
   useEffect(() => {
-    const token = localStorage.getItem('moshcast_token')
-    if (token) {
+    const storedToken = localStorage.getItem('moshcast_token')
+    if (storedToken) {
+      setToken(storedToken)
       authAPI.me()
         .then(userData => {
           setUser(userData)
@@ -19,6 +21,7 @@ export function AuthProvider({ children }) {
         .catch(() => {
           // Token invalid, clear it
           localStorage.removeItem('moshcast_token')
+          setToken(null)
         })
         .finally(() => {
           setLoading(false)
@@ -33,6 +36,7 @@ export function AuthProvider({ children }) {
     try {
       const data = await authAPI.login(email, password)
       localStorage.setItem('moshcast_token', data.token)
+      setToken(data.token)
       setUser(data.user)
       return data
     } catch (err) {
@@ -46,6 +50,7 @@ export function AuthProvider({ children }) {
     try {
       const data = await authAPI.signup(email, password, username)
       localStorage.setItem('moshcast_token', data.token)
+      setToken(data.token)
       setUser(data.user)
       return data
     } catch (err) {
@@ -56,6 +61,7 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     localStorage.removeItem('moshcast_token')
+    setToken(null)
     setUser(null)
   }
 
@@ -71,6 +77,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user,
+      token,
       loading,
       error,
       login,
